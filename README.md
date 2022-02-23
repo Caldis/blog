@@ -1,2 +1,1 @@
-# blog
-The blog
+# The blog
