@@ -1,8 +1,8 @@
 import React from 'react'
 import s from 'classnames'
 import { NavLink, useLocation } from 'react-router-dom'
-import styles from './Header.module.scss'
-import { ROUTE_LIST, ROUTES } from '../constants'
+import styles from 'components/Header.module.scss'
+import { ROUTE_LIST, ROUTES } from 'src/constants'
 
 export function Header () {
   const location = useLocation()
