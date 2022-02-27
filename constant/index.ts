@@ -2,17 +2,17 @@ export const ROUTES = {
   thoughts: {
     pageName: 'Thoughts',
     linkName: 'Thoughts',
-    path: '/thoughts',
+    pathname: '/thoughts',
   },
   experiments: {
     pageName: 'Experiments',
     linkName: 'Experiments',
-    path: '/experiments',
+    pathname: '/experiments',
   },
   about: {
     pageName: 'Me',
     linkName: 'About',
-    path: '/about',
+    pathname: '/about',
   },
 }
 export const ROUTE_LIST = [
@@ -20,4 +20,3 @@ export const ROUTE_LIST = [
   ROUTES.experiments,
   ROUTES.about
 ]
-export const ROUTE_DEFAULT = ROUTES.thoughts

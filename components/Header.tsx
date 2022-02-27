@@ -1,22 +1,25 @@
 import React from 'react'
 import s from 'classnames'
-import { NavLink, useLocation } from 'react-router-dom'
+import { useRouter } from 'next/router'
+import { NavLink } from './NavLink'
 import styles from 'components/Header.module.scss'
-import { ROUTE_LIST, ROUTES } from 'src/constants'
+import { ROUTE_LIST, ROUTES } from 'constant'
 
 export function Header () {
-  const location = useLocation()
+
+  const { pathname } = useRouter()
+
   return (
     <header className={styles.header}>
       <h1>
-        {Object.entries(ROUTES).find(([_, v]) => location.pathname.startsWith(v.path))?.[1].pageName || 404}
+        {Object.entries(ROUTES).find(([_, v]) => pathname.startsWith(v.pathname))?.[1].pageName || '404'}
       </h1>
       <nav className={styles.navLinks}>
         {ROUTE_LIST.map(i => {
           return (
             <NavLink
-              key={i.path}
-              to={i.path}
+              key={i.pathname}
+              href={i.pathname}
               className={({ isActive }) =>
                 s([styles.navLink, {
                   [styles.navLinkActive]: isActive
@@ -29,3 +32,4 @@ export function Header () {
     </header>
   )
 }
+
