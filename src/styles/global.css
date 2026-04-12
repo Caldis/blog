@@ -1,0 +1,38 @@
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --max-width: 660px;
+  --bg: #ddd;
+  --text: #1a1a1a;
+  --text-secondary: #555;
+  --icon-hover: #000;
+}
+
+html[data-theme="dark"] {
+  --bg: #1a1a1a;
+  --text: #ddd;
+  --text-secondary: #999;
+  --icon-hover: #fff;
+}
+
+html {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
