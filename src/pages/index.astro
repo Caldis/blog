@@ -1,3 +1,6 @@
----
-return Astro.redirect("/thoughts");
----
+<html>
+<head>
+<meta http-equiv="refresh" content="0;url=/thoughts">
+<script is:inline>window.location.replace('/thoughts')</script>
+</head>
+</html>
