@@ -24,6 +24,14 @@ const currentPath = Astro.url.pathname;
       document.documentElement.setAttribute("data-theme", t);
     </script>
   </head>
+  <script>
+    document.addEventListener("astro:before-swap", (e) => {
+      const theme = document.documentElement.getAttribute("data-theme");
+      if (theme) {
+        e.newDocument.documentElement.setAttribute("data-theme", theme);
+      }
+    });
+  </script>
   <body>
     <div class="container">
       <Header currentPath={currentPath} />
