@@ -18,20 +18,7 @@ const currentPath = Astro.url.pathname;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <ClientRouter />
-    <script is:inline>
-      const t = localStorage.getItem("theme") ||
-        (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-      document.documentElement.setAttribute("data-theme", t);
-    </script>
   </head>
-  <script>
-    document.addEventListener("astro:before-swap", (e) => {
-      const theme = document.documentElement.getAttribute("data-theme");
-      if (theme) {
-        e.newDocument.documentElement.setAttribute("data-theme", theme);
-      }
-    });
-  </script>
   <body>
     <div class="container">
       <Header currentPath={currentPath} />
