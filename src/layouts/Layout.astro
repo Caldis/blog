@@ -1,7 +1,6 @@
 ---
 import "../styles/global.css";
 import Header from "../components/Header.astro";
-import { ClientRouter } from "astro:transitions";
 
 interface Props {
   title?: string;
@@ -17,7 +16,33 @@ const currentPath = Astro.url.pathname;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
-    <ClientRouter />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/newsreader-var.woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/geist-var.woff2"
+      crossorigin
+    />
+    <!-- Google tag (gtag.js) -->
+    <script
+      is:inline
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-HGYPWSLD0Y"></script>
+    <script is:inline>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-HGYPWSLD0Y");
+    </script>
   </head>
   <body>
     <div class="container">
@@ -33,10 +58,10 @@ const currentPath = Astro.url.pathname;
   .container {
     max-width: var(--max-width);
     margin: 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 clamp(1.25rem, 4vw, 2rem);
   }
 
   main {
-    padding-bottom: 4rem;
+    padding-bottom: clamp(4rem, 10vw, 8rem);
   }
 </style>

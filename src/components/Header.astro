@@ -13,13 +13,24 @@ interface Props {
 ---
 
 <header>
-  <a class="title" href="/thoughts">Thoughts</a>
-  <nav>
-    {nav.map(({ name, href }) => (
-      <a href={href} class:list={[{ active: currentPath.startsWith(href) }]}>
-        {name}
-      </a>
-    ))}
+  <a class="wordmark" href="/thoughts">Blog</a>
+  <nav aria-label="Primary">
+    {nav.map(({ name, href }, i) => {
+      const isActive = currentPath.startsWith(href);
+      return (
+        <Fragment>
+          {i > 0 && <span class="sep" aria-hidden="true">·</span>}
+          <a
+            href={href}
+            data-label={name}
+            aria-current={isActive ? "page" : undefined}
+            class:list={[{ active: isActive }]}
+          >
+            <span>{name}</span>
+          </a>
+        </Fragment>
+      );
+    })}
   </nav>
 </header>
 
@@ -28,21 +39,98 @@ interface Props {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: 2rem 0 3rem;
+    gap: 1.5rem;
+    padding: clamp(2rem, 5vw, 3rem) 0 clamp(2.5rem, 6vw, 4rem);
+    flex-wrap: wrap;
   }
 
-  .title {
-    font-size: 2rem;
-    font-weight: 900;
+  .wordmark {
+    font-family: var(--font-serif);
+    font-size: 1.375rem;
+    font-weight: 480;
+    letter-spacing: -0.012em;
+    line-height: 1;
+    color: var(--ink);
+    font-variation-settings: "opsz" 24;
   }
 
   nav {
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    align-items: baseline;
+    gap: 0.75rem;
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+    color: var(--ink-soft);
+    font-variation-settings: "opsz" 18;
+  }
+
+  /* Ghost-label technique: each anchor is a grid container with its own
+     invisible bold twin (::before) reserving width. The real <span> sits in
+     the same cell. Width stays locked to the bold state regardless of
+     whether the item is currently active, so weight transitions don't
+     shift siblings. */
+  nav a {
+    position: relative;
+    display: inline-grid;
+    grid-template-areas: "stack";
+    text-decoration: none;
+    padding-bottom: 0.22em;
+    color: inherit;
+    transition: color 180ms ease;
+  }
+
+  nav a::before {
+    content: attr(data-label);
+    grid-area: stack;
+    font-weight: 540;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  nav a > span {
+    grid-area: stack;
+    font-weight: 400;
+    transition: font-weight 180ms ease;
+  }
+
+  nav a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0.08em;
+    height: 1px;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 180ms ease;
+  }
+
+  nav a:not(.active):hover {
+    color: var(--ink);
+  }
+
+  nav a:not(.active):hover::after {
+    opacity: 0.35;
   }
 
   nav a.active {
-    text-decoration: underline;
+    color: var(--ink);
+  }
+
+  nav a.active > span {
+    font-weight: 540;
+  }
+
+  nav a.active::after {
+    display: none;
+  }
+
+  .sep {
+    color: var(--ink-faint);
+    user-select: none;
+    font-size: 1rem;
+    line-height: 1;
   }
 </style>

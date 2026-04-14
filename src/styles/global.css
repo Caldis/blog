@@ -1,3 +1,40 @@
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/newsreader-var.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/geist-var.woff2") format("woff2");
+}
+
+/* Fallback with matched metrics to eliminate FOUT layout shift.
+   Newsreader-ish fallback on Georgia. */
+@font-face {
+  font-family: "Newsreader Fallback";
+  src: local("Georgia");
+  size-adjust: 100%;
+  ascent-override: 95%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+/* Geist-ish fallback on Arial. */
+@font-face {
+  font-family: "Geist Fallback";
+  src: local("Arial");
+  size-adjust: 102%;
+  ascent-override: 92%;
+  descent-override: 23%;
+  line-gap-override: 0%;
+}
+
 *,
 *::before,
 *::after {
@@ -7,23 +44,44 @@
 }
 
 :root {
-  --max-width: 660px;
-  --bg: #ddd;
-  --text: #1a1a1a;
-  --text-secondary: #555;
+  --max-width: 42rem;
+
+  --bg: #e6e0d2;
+  --ink: #1b1917;
+  --ink-soft: #5a544c;
+  --ink-faint: #8f887c;
+  --rule: #c6bca8;
+  --accent: oklch(32% 0.07 245);
+  --accent-strong: oklch(26% 0.08 245);
+
+  --font-serif: "Newsreader", "Newsreader Fallback", "Iowan Old Style",
+    "Palatino Linotype", "Book Antiqua", Georgia, "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", serif;
+  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", sans-serif;
 }
 
 html {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: var(--text);
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+  font-feature-settings: "kern", "liga", "calt";
+  color: var(--ink);
   background: var(--bg);
   color-scheme: light;
   min-height: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
+  font-size: 1rem;
+  line-height: 1.6;
   min-height: 100vh;
   position: relative;
+  overflow-x: clip;
 }
 
 body::before {
@@ -32,12 +90,40 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  opacity: 0.35;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='3' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.2;
   mix-blend-mode: multiply;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+  transition: text-decoration-color 180ms ease, color 180ms ease;
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 460;
+  line-height: 1.08;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+  font-variation-settings: "opsz" 36;
+}
+
+p {
+  text-wrap: pretty;
 }
