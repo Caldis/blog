@@ -7,7 +7,7 @@ const PATHS: Record<SpaceName, string> = {
   about: "/about",
 };
 
-const EASE = "cubic-bezier(0.22, 1, 0.28, 1)";
+const EASE = "cubic-bezier(0.65, 0, 0.25, 1)";
 const DUR_ADJACENT = 760;
 const DUR_FAR = 1000;
 const SNAP_MIN = 340;
