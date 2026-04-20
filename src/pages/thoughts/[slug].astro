@@ -31,7 +31,7 @@ const fmt = (d: Date) =>
 ---
 
 <Layout title={post.data.title}>
-  <article data-layout={layout}>
+  <article data-layout={layout} style="view-transition-name: page;">
     {hasImage && layout === "spread" && (
       <header class="hero hero-spread">
         <figure>
