@@ -182,24 +182,23 @@ export function initSpaces(): void {
     }
   });
 
-  document.addEventListener(
-    "click",
-    (e) => {
-      const anchor = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>(
-        "a[href]"
-      );
-      if (!anchor) return;
-      const href = anchor.getAttribute("href") ?? "";
-      if (!/^\/(thoughts|projects|about)\/?$/.test(href)) return;
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      if ((e as MouseEvent).button !== 0) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      const target = indexFromPath(href);
-      goToSpace(state, target, { push: true });
-    },
-    { capture: true }
-  );
+  // Nav-link clicks are captured and preventDefault'd by the inline early
+  // script in SpacesLayout (so pre-module clicks can't escape into a real
+  // navigation). It forwards them via a custom event we handle here.
+  window.addEventListener("spaces:nav", (e) => {
+    const href = (e as CustomEvent).detail?.href as string | undefined;
+    if (typeof href !== "string") return;
+    goToSpace(state, indexFromPath(href), { push: true });
+  });
+
+  // Drain any click that fired before initSpaces ran.
+  const pending = (window as unknown as { __spacesPending?: string })
+    .__spacesPending;
+  if (typeof pending === "string") {
+    (window as unknown as { __spacesPending?: string }).__spacesPending =
+      undefined;
+    goToSpace(state, indexFromPath(pending), { push: true });
+  }
 
   window.addEventListener("popstate", (e) => {
     const targetIndex =

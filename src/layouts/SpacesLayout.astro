@@ -49,6 +49,36 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
     </script>
   </head>
   <body data-spaces-body>
+    <script is:inline>
+      // Runs before the bundled SpacesLayout module. Intercepts nav-link
+      // clicks that happen before initSpaces() attaches its own handler,
+      // so a slow-loading bundle or a fast click can't fall through to a
+      // full-document navigation (which the @view-transition rule would
+      // turn into a crossfade instead of the slide animation).
+      (function () {
+        document.addEventListener(
+          "click",
+          function (e) {
+            var a =
+              e.target &&
+              e.target.closest &&
+              e.target.closest("a[href]");
+            if (!a) return;
+            var h = a.getAttribute("href") || "";
+            if (!/^\/(thoughts|projects|about)\/?$/.test(h)) return;
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            window.__spacesPending = h;
+            window.dispatchEvent(
+              new CustomEvent("spaces:nav", { detail: { href: h } })
+            );
+          },
+          { capture: true }
+        );
+      })();
+    </script>
     <div class="header-slot">
       <Header currentPath={currentPath} />
     </div>
