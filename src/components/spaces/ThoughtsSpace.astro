@@ -1,0 +1,75 @@
+---
+import { getCollection } from "astro:content";
+
+const posts = (await getCollection("thoughts")).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
+
+const fmt = (d: Date) =>
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+---
+
+<ol class="index" role="list">
+  {posts.map((post) => (
+    <li>
+      <a href={`/thoughts/${post.id}/`} class="entry" data-thoughts-link>
+        <time datetime={post.data.date.toISOString()}>
+          {fmt(post.data.date)}
+        </time>
+        <h2>{post.data.title}</h2>
+        {post.data.summary && <p>{post.data.summary}</p>}
+      </a>
+    </li>
+  ))}
+</ol>
+
+<style>
+  .index {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .entry {
+    display: grid;
+    gap: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  time {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    color: var(--ink-faint);
+    font-feature-settings: "tnum";
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 1.875rem);
+    font-weight: 460;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    font-variation-settings: "opsz" 36;
+    transition: color 180ms ease;
+  }
+
+  p {
+    color: var(--ink-soft);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    max-width: 34rem;
+    margin-top: 0.25rem;
+  }
+
+  .entry:hover h2 {
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: 1px;
+  }
+</style>
