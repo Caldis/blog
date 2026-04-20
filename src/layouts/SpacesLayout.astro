@@ -79,6 +79,33 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
     <script>
       import { initSpaces } from "../scripts/spaces";
 
+      function positionIndicator(index: number, immediate = false) {
+        const indicator = document.querySelector<HTMLElement>(".nav-indicator");
+        if (!indicator) return;
+        const links = document.querySelectorAll<HTMLAnchorElement>(
+          "header nav a"
+        );
+        const active = links[index];
+        if (!active) return;
+        const nav = active.parentElement;
+        if (!nav) return;
+        const navBox = nav.getBoundingClientRect();
+        const box = active.getBoundingClientRect();
+        const x = box.left - navBox.left;
+        const w = box.width;
+        if (immediate) {
+          indicator.classList.remove("ready");
+          indicator.style.setProperty("--indicator-x", `${x}px`);
+          indicator.style.setProperty("--indicator-w", `${w}px`);
+          // Force reflow so the next class addition doesn't animate from 0.
+          void indicator.offsetWidth;
+          indicator.classList.add("ready");
+        } else {
+          indicator.style.setProperty("--indicator-x", `${x}px`);
+          indicator.style.setProperty("--indicator-w", `${w}px`);
+        }
+      }
+
       function syncNavActive(index: number) {
         const paths = ["/thoughts", "/projects", "/about"];
         const activePath = paths[index];
@@ -95,6 +122,15 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
               a.removeAttribute("aria-current");
             }
           });
+        positionIndicator(index);
+      }
+
+      function currentActiveIndex(): number {
+        const links = Array.from(
+          document.querySelectorAll<HTMLAnchorElement>("header nav a")
+        );
+        const i = links.findIndex((a) => a.classList.contains("active"));
+        return i >= 0 ? i : 0;
       }
 
       window.addEventListener("spaces:change", (e) => {
@@ -103,6 +139,15 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
       });
 
       initSpaces();
+
+      // Initial indicator placement after first layout.
+      requestAnimationFrame(() => {
+        positionIndicator(currentActiveIndex(), true);
+      });
+
+      window.addEventListener("resize", () => {
+        positionIndicator(currentActiveIndex(), true);
+      });
 
       // Restore Thoughts scroll position after returning from a detail page.
       const saved = sessionStorage.getItem("thoughtsScroll");

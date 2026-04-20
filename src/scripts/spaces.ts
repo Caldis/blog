@@ -7,11 +7,11 @@ const PATHS: Record<SpaceName, string> = {
   about: "/about",
 };
 
-const EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
-const DUR_ADJACENT = 480;
-const DUR_FAR = 640;
-const SNAP_MIN = 220;
-const SNAP_MAX = 480;
+const EASE = "cubic-bezier(0.22, 1, 0.28, 1)";
+const DUR_ADJACENT = 760;
+const DUR_FAR = 1000;
+const SNAP_MIN = 340;
+const SNAP_MAX = 760;
 const COMMIT_RATIO = 0.25;
 const COMMIT_VELOCITY = 0.5; // px/ms
 const WHEEL_DOMINANCE = 1.5;
@@ -77,6 +77,7 @@ function goToSpace(state: State, target: number, opts: { push: boolean }) {
       : DUR_ADJACENT;
   state.phase = "settling";
   state.index = clamped;
+  emitChange(state);
   applyTransform(state, -clamped * state.viewport.clientWidth, { dur });
   if (state.settleTimer) window.clearTimeout(state.settleTimer);
   state.settleTimer = window.setTimeout(() => {
@@ -88,7 +89,6 @@ function goToSpace(state: State, target: number, opts: { push: boolean }) {
         history.pushState({ space: clamped }, "", targetPath);
       }
     }
-    emitChange(state);
   }, dur);
 }
 
@@ -121,6 +121,7 @@ function settleFromDrag(state: State) {
 
   state.phase = "settling";
   state.index = clamped;
+  emitChange(state);
   applyTransform(state, endPx, { dur });
   if (state.settleTimer) window.clearTimeout(state.settleTimer);
   state.settleTimer = window.setTimeout(() => {
@@ -131,7 +132,6 @@ function settleFromDrag(state: State) {
     if (location.pathname !== targetPath) {
       history.pushState({ space: clamped }, "", targetPath);
     }
-    emitChange(state);
   }, dur);
 }
 
