@@ -1,0 +1,195 @@
+---
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import ThoughtsSpace from "../components/spaces/ThoughtsSpace.astro";
+import ProjectsSpace from "../components/spaces/ProjectsSpace.astro";
+import AboutSpace from "../components/spaces/AboutSpace.astro";
+
+interface Props {
+  title?: string;
+  activeIndex: 0 | 1 | 2;
+}
+
+const { title = "Caldis's Blog", activeIndex } = Astro.props;
+const currentPath = Astro.url.pathname;
+const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/newsreader-var.woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/geist-var.woff2"
+      crossorigin
+    />
+    <script
+      is:inline
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-HGYPWSLD0Y"></script>
+    <script is:inline>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-HGYPWSLD0Y");
+    </script>
+  </head>
+  <body data-spaces-body>
+    <div class="header-slot">
+      <Header currentPath={currentPath} />
+    </div>
+    <main class="spaces-viewport" style="view-transition-name: page;">
+      <div
+        class="spaces-track"
+        data-active-index={activeIndex}
+        style={`transform: ${translate};`}
+      >
+        <section class="space" data-space="thoughts" data-index="0">
+          <div class="space-inner">
+            <ThoughtsSpace />
+          </div>
+        </section>
+        <section class="space" data-space="projects" data-index="1">
+          <div class="space-inner">
+            <ProjectsSpace />
+          </div>
+        </section>
+        <section class="space" data-space="about" data-index="2">
+          <div class="space-inner">
+            <AboutSpace />
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      import { initSpaces } from "../scripts/spaces";
+
+      function syncNavActive(index: number) {
+        const paths = ["/thoughts", "/projects", "/about"];
+        const activePath = paths[index];
+        document
+          .querySelectorAll<HTMLAnchorElement>("header nav a")
+          .forEach((a) => {
+            const href = a.getAttribute("href") ?? "";
+            const isActive = href === activePath;
+            if (isActive) {
+              a.classList.add("active");
+              a.setAttribute("aria-current", "page");
+            } else {
+              a.classList.remove("active");
+              a.removeAttribute("aria-current");
+            }
+          });
+      }
+
+      window.addEventListener("spaces:change", (e) => {
+        const idx = (e as CustomEvent).detail?.index ?? 0;
+        syncNavActive(idx);
+      });
+
+      initSpaces();
+
+      // Restore Thoughts scroll position after returning from a detail page.
+      const saved = sessionStorage.getItem("thoughtsScroll");
+      if (saved !== null) {
+        const el = document.querySelector<HTMLElement>(
+          '.space[data-space="thoughts"]'
+        );
+        if (el) el.scrollTop = Number(saved) || 0;
+        sessionStorage.removeItem("thoughtsScroll");
+      }
+
+      // Save Thoughts scroll on outbound click to a post.
+      document.addEventListener("click", (e) => {
+        const a = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>(
+          "a[data-thoughts-link]"
+        );
+        if (!a) return;
+        const el = document.querySelector<HTMLElement>(
+          '.space[data-space="thoughts"]'
+        );
+        if (el) sessionStorage.setItem("thoughtsScroll", String(el.scrollTop));
+      });
+
+      // Measure header height so viewport fills remaining space cleanly.
+      function setHeaderHeight() {
+        const h = document.querySelector<HTMLElement>("header");
+        if (!h) return;
+        document.documentElement.style.setProperty(
+          "--header-height",
+          `${h.getBoundingClientRect().height}px`
+        );
+      }
+      setHeaderHeight();
+      window.addEventListener("resize", setHeaderHeight);
+      if (document.fonts?.ready) {
+        document.fonts.ready.then(setHeaderHeight);
+      }
+    </script>
+
+    <style is:global>
+      body[data-spaces-body] {
+        overflow: hidden;
+        height: 100vh;
+      }
+    </style>
+
+    <style>
+      .header-slot {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: 0 clamp(1.25rem, 4vw, 2rem);
+      }
+
+      .spaces-viewport {
+        position: relative;
+        width: 100%;
+        height: calc(100vh - var(--header-height, 0px));
+        overflow: hidden;
+        touch-action: pan-y;
+      }
+
+      .spaces-track {
+        display: flex;
+        width: 300%;
+        height: 100%;
+        will-change: transform;
+      }
+
+      .space {
+        width: calc(100% / 3);
+        height: 100%;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .space-inner {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: 0 clamp(1.25rem, 4vw, 2rem) clamp(4rem, 10vw, 8rem);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .spaces-track {
+          transition: none !important;
+        }
+      }
+    </style>
+  </body>
+</html>
