@@ -1,30 +1,5 @@
 ---
-import Layout from "../../layouts/Layout.astro";
+import SpacesLayout from "../../layouts/SpacesLayout.astro";
 ---
 
-<Layout title="Projects">
-  <section class="projects">
-    <h1>Projects</h1>
-    <p>Nothing on the shelf yet — come back later.</p>
-  </section>
-</Layout>
-
-<style>
-  .projects {
-    display: grid;
-    gap: 1.25rem;
-  }
-
-  h1 {
-    font-size: clamp(2.25rem, 5vw, 3rem);
-    font-weight: 460;
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-    font-variation-settings: "opsz" 60;
-  }
-
-  p {
-    color: var(--ink-soft);
-    max-width: 30rem;
-  }
-</style>
+<SpacesLayout title="Projects" activeIndex={1} />
