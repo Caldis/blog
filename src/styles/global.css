@@ -128,32 +128,3 @@ p {
   text-wrap: pretty;
 }
 
-@view-transition {
-  navigation: auto;
-}
-
-@keyframes spaces-fade-out {
-  to { opacity: 0; }
-}
-@keyframes spaces-fade-in {
-  from { opacity: 0; }
-}
-
-::view-transition-old(page),
-::view-transition-new(page) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-::view-transition-old(page) {
-  animation-name: spaces-fade-out;
-}
-::view-transition-new(page) {
-  animation-name: spaces-fade-in;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(page),
-  ::view-transition-new(page) {
-    animation-duration: 0ms;
-  }
-}
