@@ -43,10 +43,6 @@ export function pathFromIndex(i: number): string {
   return PATHS[SPACES[i] ?? "thoughts"];
 }
 
-function prefersReducedMotion(): boolean {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
 function applyTransform(state: State, px: number, anim: { dur: number } | null) {
   if (anim) {
     state.track.style.transition = `transform ${anim.dur}ms ${EASE}`;
@@ -75,11 +71,7 @@ function goToSpace(state: State, target: number, opts: { push: boolean }) {
   const clamped = Math.max(0, Math.min(SPACES.length - 1, target));
   if (clamped === state.index && state.phase === "idle") return;
   const distance = Math.abs(clamped - state.index);
-  const dur = prefersReducedMotion()
-    ? 0
-    : distance >= 2
-      ? DUR_FAR
-      : DUR_ADJACENT;
+  const dur = distance >= 2 ? DUR_FAR : DUR_ADJACENT;
   state.phase = "settling";
   state.index = clamped;
   emitChange(state);
@@ -120,9 +112,10 @@ function settleFromDrag(state: State) {
   const endPx = -clamped * vw;
   const remaining = Math.abs(endPx - startPx);
   const ratio = vw === 0 ? 0 : remaining / vw;
-  const dur = prefersReducedMotion()
-    ? 0
-    : Math.max(SNAP_MIN, Math.min(SNAP_MAX, Math.round(ratio * DUR_ADJACENT)));
+  const dur = Math.max(
+    SNAP_MIN,
+    Math.min(SNAP_MAX, Math.round(ratio * DUR_ADJACENT))
+  );
 
   state.phase = "settling";
   state.index = clamped;

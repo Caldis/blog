@@ -88,11 +88,6 @@ interface Props {
       opacity 180ms ease;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .nav-indicator.ready {
-      transition: opacity 180ms ease;
-    }
-  }
 
   /* Ghost-label technique: each anchor is a grid container with its own
      invisible bold twin (::before) reserving width. The real <span> sits in
