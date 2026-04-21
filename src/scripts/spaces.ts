@@ -50,10 +50,15 @@ function prefersReducedMotion(): boolean {
 function applyTransform(state: State, px: number, anim: { dur: number } | null) {
   if (anim) {
     state.track.style.transition = `transform ${anim.dur}ms ${EASE}`;
+    state.track.style.transform = `translate3d(${px}px, 0, 0)`;
   } else {
     state.track.style.transition = "none";
+    state.track.style.transform = `translate3d(${px}px, 0, 0)`;
+    // Force the "no transition" baseline to commit so a subsequent
+    // animated transform transitions from it instead of batching together
+    // and snapping to the final value.
+    void state.track.offsetWidth;
   }
-  state.track.style.transform = `translate3d(${px}px, 0, 0)`;
 }
 
 function baseOffset(state: State): number {
