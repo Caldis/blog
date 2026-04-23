@@ -43,6 +43,21 @@ const currentPath = Astro.url.pathname;
       gtag("js", new Date());
       gtag("config", "G-HGYPWSLD0Y");
     </script>
+    <script is:inline>
+      // Stash the active PageRevealEvent.viewTransition so body scripts
+      // (e.g. the panorama-unlock logic in album detail pages) can defer
+      // work until the morph completes. Must live in <head> so the
+      // listener is bound before pagereveal fires; deferred module
+      // scripts in the body miss the event.
+      (function () {
+        window.__pageRevealTransition = null;
+        window.addEventListener("pagereveal", function (e) {
+          if (e.viewTransition) {
+            window.__pageRevealTransition = e.viewTransition;
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div class="container">

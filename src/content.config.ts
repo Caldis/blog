@@ -14,4 +14,20 @@ const thoughts = defineCollection({
   }),
 });
 
-export const collections = { thoughts };
+const albums = defineCollection({
+  loader: glob({ pattern: "**/*.md", base: "./src/content/albums" }),
+  schema: z.object({
+    title: z.string(),
+    date: z.coerce.date(),
+    area: z.string(),
+    cover: z.string(),
+    photos: z.array(
+      z.object({
+        src: z.string(),
+        alt: z.string().optional(),
+      })
+    ),
+  }),
+});
+
+export const collections = { thoughts, albums };

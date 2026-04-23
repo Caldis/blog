@@ -31,7 +31,7 @@ const fmt = (d: Date) =>
 ---
 
 <Layout title={post.data.title}>
-  <article data-layout={layout} style="view-transition-name: page;">
+  <article data-layout={layout}>
     {hasImage && layout === "spread" && (
       <header class="hero hero-spread">
         <figure>
@@ -126,10 +126,13 @@ const fmt = (d: Date) =>
     font-size: clamp(1.625rem, 3.2vw, 2.125rem);
   }
 
-  /* Meta (shared) */
+  /* Meta (shared) — also the hero morph target from a thoughts list card.
+     The list's <a class="entry"> expands into this block via the `hero`
+     view-transition group. */
   .meta {
     display: grid;
     gap: 0.625rem;
+    view-transition-name: hero;
   }
 
   .meta time {
@@ -139,26 +142,33 @@ const fmt = (d: Date) =>
     font-feature-settings: "tnum";
   }
 
+  /* Typography aligns with the list card's .entry h2 so the hero morph's
+     content crossfade (220ms) doesn't read as a color/weight jump. The
+     delta that remains is purely size — which is exactly the "this grew
+     into its detail form" reading we want. */
   .meta h1 {
+    font-family: var(--font-serif);
     font-size: clamp(1.875rem, 4vw, 2.5rem);
-    font-weight: 560;
-    line-height: 1.18;
-    letter-spacing: -0.018em;
-    color: var(--accent);
-    font-variation-settings: "opsz" 48;
+    font-weight: 460;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    font-variation-settings: "opsz" 36;
   }
 
+  /* Subtitle aligns with list summary: same family (sans), same weight,
+     same color, same style (non-italic), same line-height. Size allowed
+     to nudge up. */
   .meta .subtitle {
-    font-family: var(--font-serif);
-    font-size: clamp(1.0625rem, 1.6vw, 1.1875rem);
-    font-weight: 380;
-    line-height: 1.45;
-    letter-spacing: -0.005em;
+    font-family: var(--font-sans);
+    font-size: clamp(0.9375rem, 1.4vw, 1.0625rem);
+    font-weight: 400;
+    line-height: 1.65;
+    letter-spacing: 0;
     color: var(--ink-soft);
-    font-style: italic;
-    font-variation-settings: "opsz" 24;
+    font-style: normal;
     max-width: 36rem;
-    margin-top: 0.75rem;
+    margin-top: 0.5rem;
   }
 
   .meta-stacked {

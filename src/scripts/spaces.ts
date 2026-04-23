@@ -1,9 +1,10 @@
-type SpaceName = "thoughts" | "projects" | "about";
+type SpaceName = "thoughts" | "projects" | "albums" | "about";
 
-const SPACES: SpaceName[] = ["thoughts", "projects", "about"];
+const SPACES: SpaceName[] = ["thoughts", "projects", "albums", "about"];
 const PATHS: Record<SpaceName, string> = {
   thoughts: "/thoughts",
   projects: "/projects",
+  albums: "/albums",
   about: "/about",
 };
 
@@ -27,15 +28,12 @@ interface State {
   dragDx: number;
   samples: { t: number; dx: number }[];
   settleTimer: number | null;
-  pointerId: number | null;
-  startX: number;
-  startY: number;
-  lockedHorizontal: boolean;
 }
 
 export function indexFromPath(pathname: string): number {
   if (pathname.startsWith("/projects")) return 1;
-  if (pathname.startsWith("/about")) return 2;
+  if (pathname.startsWith("/albums")) return 2;
+  if (pathname.startsWith("/about")) return 3;
   return 0;
 }
 
@@ -165,10 +163,6 @@ export function initSpaces(): void {
     dragDx: 0,
     samples: [],
     settleTimer: null,
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    lockedHorizontal: false,
   };
 
   applyTransform(state, baseOffset(state), null);
@@ -245,45 +239,4 @@ export function initSpaces(): void {
     { passive: false }
   );
 
-  viewport.addEventListener("pointerdown", (e) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    if (state.phase === "settling") return;
-    state.pointerId = e.pointerId;
-    state.startX = e.clientX;
-    state.startY = e.clientY;
-    state.lockedHorizontal = false;
-    state.dragDx = 0;
-    state.samples = [{ t: performance.now(), dx: 0 }];
-  });
-
-  viewport.addEventListener("pointermove", (e) => {
-    if (state.pointerId !== e.pointerId) return;
-    const dx = e.clientX - state.startX;
-    const dy = e.clientY - state.startY;
-    if (!state.lockedHorizontal) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
-        state.lockedHorizontal = true;
-        state.phase = "dragging";
-        viewport.setPointerCapture(e.pointerId);
-      } else {
-        state.pointerId = null;
-        return;
-      }
-    }
-    if (!state.lockedHorizontal) return;
-    state.dragDx = -dx;
-    state.samples.push({ t: performance.now(), dx: state.dragDx });
-    if (state.samples.length > 8) state.samples.shift();
-    updateDragVisual(state);
-  });
-
-  const endPointer = (e: PointerEvent) => {
-    if (state.pointerId !== e.pointerId) return;
-    state.pointerId = null;
-    if (state.phase === "dragging") settleFromDrag(state);
-    state.lockedHorizontal = false;
-  };
-  viewport.addEventListener("pointerup", endPointer);
-  viewport.addEventListener("pointercancel", endPointer);
 }

@@ -1,0 +1,379 @@
+---
+import { getCollection } from "astro:content";
+
+const albums = (await getCollection("albums")).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
+
+const byYear = new Map<number, typeof albums>();
+for (const a of albums) {
+  const y = a.data.date.getFullYear();
+  if (!byYear.has(y)) byYear.set(y, []);
+  byYear.get(y)!.push(a);
+}
+const years = Array.from(byYear.keys()).sort((a, b) => b - a);
+
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+---
+
+<section class="albums" data-albums-space>
+  <header class="head">
+    <h1>Albums</h1>
+    <p>
+      影像的索引。按年顺着时间倒着翻，每一帧都在当年的一个具体位置。
+    </p>
+  </header>
+
+  {years.map((year) => (
+    <section class="year" data-year={year}>
+      <div class="year-label" aria-hidden="true">
+        <span>{year}</span>
+      </div>
+
+      <ol class="entries" role="list">
+        {byYear.get(year)!.map((album) => {
+          const photoCount = album.data.photos?.length ?? 0;
+          return (
+            <li class="entry" data-album-entry>
+              <a
+                href={`/albums/${album.id}/`}
+                class="entry-link"
+                data-album-link
+              >
+                <figure class="cover">
+                  <span class="skeleton" aria-hidden="true"></span>
+                  <img
+                    class="cover-img"
+                    data-album-src={album.data.cover}
+                    alt={album.data.title}
+                    decoding="async"
+                  />
+                </figure>
+                <figcaption class="meta">
+                  <span class="date">{fmtDate(album.data.date)}</span>
+                  <span class="title">{album.data.title}</span>
+                  <span class="area">{album.data.area}</span>
+                  {photoCount > 1 && (
+                    <span class="count" aria-label={`${photoCount} photos`}>
+                      {photoCount}
+                    </span>
+                  )}
+                </figcaption>
+              </a>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  ))}
+</section>
+
+<style>
+  .albums {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  .head {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 32rem;
+  }
+
+  .head h1 {
+    font-size: clamp(2.25rem, 5vw, 3rem);
+    font-weight: 460;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 60;
+  }
+
+  .head p {
+    color: var(--ink-soft);
+    font-family: var(--font-serif);
+    font-size: 1.0625rem;
+    font-style: italic;
+    line-height: 1.55;
+    font-variation-settings: "opsz" 18;
+  }
+
+  .year {
+    position: relative;
+  }
+
+  /*
+   * Year label — running title, editorial folio pattern.
+   *
+   * `position: sticky` pins the year numeral to the top of the scroll
+   * panel while the user is inside that year's album group. Readable
+   * via `mix-blend-mode: difference`:
+   *
+   *   — over the cream page bg (~#e6e0d2) the white text differences
+   *     down to a dark warm ink;
+   *   — over a dark photo the same white text stays near-white.
+   *
+   * IMPORTANT: the ancestor `.spaces-track` has `will-change: transform`
+   * which implicitly establishes a stacking context AND an isolation
+   * group for blending. The global `body::before` paper-noise layer
+   * lives at `z-index: -1` on the root — it CANNOT paint inside the
+   * spaces-track context. Without any painted backdrop inside that
+   * group, `mix-blend-mode: difference` resolves against transparent
+   * black and white text stays white.
+   *
+   * Fix: paint the same cream + noise surface inside .year. A solid
+   * color alone (old code) hid the noise and showed a visible seam
+   * against the surrounding noised page. By re-applying the noise via
+   * a `::before` that mirrors body::before's setup, the year section
+   * reads as a continuous part of the paper — not a cream patch.
+   */
+  .year {
+    position: relative;
+    background: var(--bg);
+  }
+
+  .year::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: var(--noise-svg);
+    opacity: 0.2;
+    mix-blend-mode: multiply;
+  }
+
+  .year-label {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+
+    display: flex;
+    align-items: baseline;
+    gap: 1.25rem;
+    margin-top: clamp(3rem, 6vw, 5rem);
+    margin-bottom: clamp(1.5rem, 3vw, 2.25rem);
+    padding: 0.5rem 0;
+
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: clamp(3.25rem, 8vw, 5.75rem);
+    font-weight: 340;
+    line-height: 0.92;
+    letter-spacing: -0.035em;
+    font-variation-settings: "opsz" 72;
+    font-feature-settings: "tnum";
+
+    color: white;
+    mix-blend-mode: difference;
+    pointer-events: none; /* chrome only, never intercept clicks */
+  }
+
+  /* Trim the first group's top space — follows right after the Albums
+     header, doesn't need a second breath. */
+  .year:first-of-type .year-label {
+    margin-top: clamp(1rem, 2.5vw, 2rem);
+  }
+
+  .year-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    /* Paired with difference blend: ~40% white means the rule resolves
+       to a faint mark on either background. */
+    background: rgba(255, 255, 255, 0.4);
+    transform: translateY(-0.34em);
+  }
+
+  .entries {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(3rem, 6vw, 5rem);
+  }
+
+  .entry {
+    margin: 0;
+  }
+
+  /*
+   * Breakout without using 100vw — 100vw bleeds past the scrollbar on Windows
+   * and bleeds across space panels on the spaces track. We instead size the
+   * cover against the measured space inline size (set by JS on the space
+   * element as --space-w) and center-align by negative margin from the inner
+   * text column's left edge.
+   *
+   * --space-pad matches .space-inner's horizontal padding so we respect gutters.
+   */
+  .entry-link {
+    display: grid;
+    gap: 0.9rem;
+    color: inherit;
+    text-decoration: none;
+    --cover-w: min(65rem, calc(var(--space-w, 100vw) - var(--space-pad, 2.5rem) * 2));
+  }
+
+  .cover {
+    position: relative;
+    width: var(--cover-w);
+    aspect-ratio: 3 / 2;
+    margin-left: calc((100% - var(--cover-w)) / 2);
+    overflow: hidden;
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--ink-faint) 10%, var(--bg));
+    isolation: isolate;
+  }
+
+  /* When an entry is marked as the current hero (by either the click
+     handler on forward nav or the pagereveal handler on back nav), its
+     cover becomes the `hero` view-transition group member. Only one
+     entry ever carries `data-hero="true"` at a time. Promoting to its
+     own compositor layer cuts morph frame drops on long list pages. */
+  .entry-link[data-hero="true"] .cover {
+    view-transition-name: hero;
+    will-change: transform;
+  }
+
+  /* Skeleton: opacity-only pulse (compositor-friendly). Sits behind the
+     img — when the img is still at opacity 0 (pre-reveal) or not yet
+     loaded, the skeleton shows through; once img opacity reaches 1,
+     the img fully covers it. */
+  .skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: color-mix(in oklab, var(--ink-faint) 16%, var(--bg));
+    opacity: 0.55;
+    animation: skeleton-pulse 1.8s ease-in-out infinite;
+    animation-play-state: paused;
+    transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity;
+    pointer-events: none;
+  }
+
+  @keyframes skeleton-pulse {
+    0%,
+    100% {
+      opacity: 0.45;
+    }
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  /* Only run the pulse when the Albums panel is the active view — stops
+     CPU going to offscreen panels while the user is on Thoughts/Projects/About. */
+  .space[data-space="albums"][data-active="true"] .skeleton {
+    animation-play-state: running;
+  }
+
+  /* Only fade the skeleton once BOTH the entry has scrolled into view AND
+     the image has loaded. If we fade on is-loaded alone, an off-screen
+     entry that finished loading would show a blank backdrop until its
+     opacity-0 img fades in when the user finally scrolls to it. */
+  [data-album-entry].is-visible .cover.is-loaded .skeleton {
+    opacity: 0;
+    animation: none;
+  }
+
+  /* Image reveal via opacity class from IO. Hover scale via pure CSS
+     :hover — symmetric in/out transitions, no JS state to leak. Both
+     properties composite cheaply. */
+  .cover-img {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transform: scale(1);
+    transform-origin: center;
+    transition:
+      opacity 760ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  [data-album-entry].is-visible .cover-img {
+    opacity: 1;
+  }
+
+  .entry-link:hover .cover-img {
+    transform: scale(1.04);
+  }
+
+  .meta {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    column-gap: 1.25rem;
+    row-gap: 0.15rem;
+    align-items: baseline;
+    font-family: var(--font-serif);
+    font-variation-settings: "opsz" 18;
+  }
+
+  .date {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-feature-settings: "tnum";
+    white-space: nowrap;
+  }
+
+  .title {
+    font-size: clamp(1.25rem, 2.2vw, 1.5rem);
+    font-weight: 480;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  .area {
+    grid-column: 2 / 3;
+    font-size: 0.9375rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-variation-settings: "opsz" 14;
+  }
+
+  .count {
+    grid-row: 1 / 2;
+    grid-column: 3 / 4;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    font-feature-settings: "tnum";
+    letter-spacing: 0.04em;
+    padding: 0.1em 0.45em;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    line-height: 1.2;
+  }
+
+  .entry-link:hover .title {
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: 1px;
+  }
+
+  @media (max-width: 36rem) {
+    .meta {
+      grid-template-columns: auto 1fr;
+    }
+    .count {
+      grid-row: 2 / 3;
+      grid-column: 2 / 3;
+      justify-self: end;
+      margin-top: 0.2rem;
+    }
+  }
+</style>

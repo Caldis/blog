@@ -3,16 +3,24 @@ import "../styles/global.css";
 import Header from "../components/Header.astro";
 import ThoughtsSpace from "../components/spaces/ThoughtsSpace.astro";
 import ProjectsSpace from "../components/spaces/ProjectsSpace.astro";
+import AlbumsSpace from "../components/spaces/AlbumsSpace.astro";
 import AboutSpace from "../components/spaces/AboutSpace.astro";
 
 interface Props {
   title?: string;
-  activeIndex: 0 | 1 | 2;
+  activeIndex: 0 | 1 | 2 | 3;
 }
 
 const { title = "Caldis's Blog", activeIndex } = Astro.props;
 const currentPath = Astro.url.pathname;
-const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
+const translate = `translate3d(-${activeIndex * 100 / 4 * 4}%, 0, 0)`;
+// equivalent: -activeIndex * 100% of viewport. Track is 400% wide,
+// each space is 25% of track = 100vw. Shifting by (index * 25%) of track
+// == index * 100vw. Writing it as (index * 100%) of viewport via track's
+// %-basis works because track-% maps to track width, so we actually need:
+// translateX = -index * (100% / 4) of track = -index * 100vw
+// -> use pixel-based via % of track: `calc(-${activeIndex * 25}%)`
+const trackTranslate = `translate3d(-${activeIndex * 25}%, 0, 0)`;
 ---
 
 <!doctype html>
@@ -47,6 +55,54 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
       gtag("js", new Date());
       gtag("config", "G-HGYPWSLD0Y");
     </script>
+    <script is:inline>
+      // Re-apply the hero view-transition-name to the card that corresponds
+      // to the slug we're returning from. Must be registered BEFORE the
+      // `pagereveal` event fires — the new snapshot is taken immediately
+      // after pagereveal, so by setting the attribute inside the handler
+      // we guarantee the browser sees the matching named element on the
+      // new side. Stays in sync with src/scripts/hero.ts: single key
+      // `heroLast` with value `kind:slug`.
+      //
+      // Guard: only apply data-hero when the user is actually landing on
+      // the MATCHING list page. SpacesLayout renders all four panels as
+      // sibling DOM nodes, so `a[href="/thoughts/X/"]` exists even while
+      // the user is on /albums (the Thoughts panel sits at translateX
+      // -200vw). Without this guard, clicking a sibling nav link from a
+      // detail page would tag an off-screen card with data-hero, and the
+      // browser would morph the hero from the detail's center to -200vw
+      // — the title visibly flies off the left edge. We always flush the
+      // stale key from sessionStorage to prevent it from riding along to
+      // later navigations.
+      (function () {
+        var PREFIXES = { albums: "/albums/", thoughts: "/thoughts/" };
+        function clearHero() {
+          var prev = document.querySelectorAll('[data-hero="true"]');
+          for (var i = 0; i < prev.length; i++) prev[i].removeAttribute("data-hero");
+        }
+        window.addEventListener("pagereveal", function (e) {
+          if (!e.viewTransition) return;
+          var raw = sessionStorage.getItem("heroLast");
+          // Always flush so a stale key can't ride to a subsequent nav.
+          sessionStorage.removeItem("heroLast");
+          if (!raw) return;
+          var sep = raw.indexOf(":");
+          if (sep < 0) return;
+          var kind = raw.slice(0, sep);
+          var slug = raw.slice(sep + 1);
+          var prefix = PREFIXES[kind];
+          if (!prefix || !slug) return;
+          // Only attach hero on the canonical list page for this kind.
+          var currentPath = location.pathname.replace(/\/$/, "");
+          if (currentPath !== "/" + kind) return;
+          var card = document.querySelector('a[href="' + prefix + slug + '/"]');
+          if (card) {
+            clearHero();
+            card.setAttribute("data-hero", "true");
+          }
+        });
+      })();
+    </script>
   </head>
   <body data-spaces-body>
     <script is:inline>
@@ -65,7 +121,7 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
               e.target.closest("a[href]");
             if (!a) return;
             var h = a.getAttribute("href") || "";
-            if (!/^\/(thoughts|projects|about)\/?$/.test(h)) return;
+            if (!/^\/(thoughts|projects|albums|about)\/?$/.test(h)) return;
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
             if (e.button !== 0) return;
             e.preventDefault();
@@ -82,23 +138,28 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
     <div class="header-slot">
       <Header currentPath={currentPath} />
     </div>
-    <main class="spaces-viewport" style="view-transition-name: page;">
+    <main class="spaces-viewport">
       <div
         class="spaces-track"
         data-active-index={activeIndex}
-        style={`transform: ${translate};`}
+        style={`transform: ${trackTranslate};`}
       >
-        <section class="space" data-space="thoughts" data-index="0">
+        <section class="space" data-space="thoughts" data-index="0" data-active={activeIndex === 0 ? "true" : "false"}>
           <div class="space-inner">
             <ThoughtsSpace />
           </div>
         </section>
-        <section class="space" data-space="projects" data-index="1">
+        <section class="space" data-space="projects" data-index="1" data-active={activeIndex === 1 ? "true" : "false"}>
           <div class="space-inner">
             <ProjectsSpace />
           </div>
         </section>
-        <section class="space" data-space="about" data-index="2">
+        <section class="space" data-space="albums" data-index="2" data-active={activeIndex === 2 ? "true" : "false"}>
+          <div class="space-inner">
+            <AlbumsSpace />
+          </div>
+        </section>
+        <section class="space" data-space="about" data-index="3" data-active={activeIndex === 3 ? "true" : "false"}>
           <div class="space-inner">
             <AboutSpace />
           </div>
@@ -108,14 +169,17 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
 
     <script>
       import { initSpaces } from "../scripts/spaces";
+      import { initAlbums } from "../scripts/albums";
+      import { initHero } from "../scripts/hero";
 
       function positionIndicator(index: number, immediate = false) {
         const indicator = document.querySelector<HTMLElement>(".nav-indicator");
         if (!indicator) return;
-        const links = document.querySelectorAll<HTMLAnchorElement>(
-          "header nav a"
+        const paths = ["/thoughts", "/projects", "/albums", "/about"];
+        const targetPath = paths[index];
+        const active = document.querySelector<HTMLAnchorElement>(
+          `header nav a[href="${targetPath}"]`
         );
-        const active = links[index];
         if (!active) return;
         const nav = active.parentElement;
         if (!nav) return;
@@ -127,7 +191,6 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
           indicator.classList.remove("ready");
           indicator.style.setProperty("--indicator-x", `${x}px`);
           indicator.style.setProperty("--indicator-w", `${w}px`);
-          // Force reflow so the next class addition doesn't animate from 0.
           void indicator.offsetWidth;
           indicator.classList.add("ready");
         } else {
@@ -137,7 +200,7 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
       }
 
       function syncNavActive(index: number) {
-        const paths = ["/thoughts", "/projects", "/about"];
+        const paths = ["/thoughts", "/projects", "/albums", "/about"];
         const activePath = paths[index];
         document
           .querySelectorAll<HTMLAnchorElement>("header nav a")
@@ -152,14 +215,25 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
               a.removeAttribute("aria-current");
             }
           });
+        // Mark the active space panel so CSS can gate expensive effects
+        // (e.g. skeleton-pulse) to only the visible panel.
+        const spaces = ["thoughts", "projects", "albums", "about"];
+        document
+          .querySelectorAll<HTMLElement>(".space")
+          .forEach((s) => {
+            const isActive = s.dataset.space === spaces[index];
+            s.dataset.active = isActive ? "true" : "false";
+          });
         positionIndicator(index);
       }
 
       function currentActiveIndex(): number {
-        const links = Array.from(
-          document.querySelectorAll<HTMLAnchorElement>("header nav a")
+        const paths = ["/thoughts", "/projects", "/albums", "/about"];
+        const active = document.querySelector<HTMLAnchorElement>(
+          'header nav a.active'
         );
-        const i = links.findIndex((a) => a.classList.contains("active"));
+        if (!active) return 0;
+        const i = paths.indexOf(active.getAttribute("href") ?? "");
         return i >= 0 ? i : 0;
       }
 
@@ -169,8 +243,9 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
       });
 
       initSpaces();
+      initAlbums();
+      initHero();
 
-      // Initial indicator placement after first layout.
       requestAnimationFrame(() => {
         positionIndicator(currentActiveIndex(), true);
       });
@@ -178,6 +253,19 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
       window.addEventListener("resize", () => {
         positionIndicator(currentActiveIndex(), true);
       });
+
+      // Measure each space's inline size and expose as --space-w so breakout
+      // elements can size themselves against the actual scrollable area
+      // (excluding any scrollbar gutter) rather than 100vw.
+      function measureSpaceWidths() {
+        document
+          .querySelectorAll<HTMLElement>(".space")
+          .forEach((el) => {
+            el.style.setProperty("--space-w", `${el.clientWidth}px`);
+          });
+      }
+      measureSpaceWidths();
+      window.addEventListener("resize", measureSpaceWidths);
 
       // Restore Thoughts scroll position after returning from a detail page.
       const saved = sessionStorage.getItem("thoughtsScroll");
@@ -189,19 +277,36 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
         sessionStorage.removeItem("thoughtsScroll");
       }
 
-      // Save Thoughts scroll on outbound click to a post.
+      const savedAlbums = sessionStorage.getItem("albumsScroll");
+      if (savedAlbums !== null) {
+        const el = document.querySelector<HTMLElement>(
+          '.space[data-space="albums"]'
+        );
+        if (el) el.scrollTop = Number(savedAlbums) || 0;
+        sessionStorage.removeItem("albumsScroll");
+      }
+
       document.addEventListener("click", (e) => {
-        const a = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>(
+        const aThought = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>(
           "a[data-thoughts-link]"
         );
-        if (!a) return;
-        const el = document.querySelector<HTMLElement>(
-          '.space[data-space="thoughts"]'
+        if (aThought) {
+          const el = document.querySelector<HTMLElement>(
+            '.space[data-space="thoughts"]'
+          );
+          if (el) sessionStorage.setItem("thoughtsScroll", String(el.scrollTop));
+        }
+        const aAlbum = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>(
+          "a[data-album-link]"
         );
-        if (el) sessionStorage.setItem("thoughtsScroll", String(el.scrollTop));
+        if (aAlbum) {
+          const el = document.querySelector<HTMLElement>(
+            '.space[data-space="albums"]'
+          );
+          if (el) sessionStorage.setItem("albumsScroll", String(el.scrollTop));
+        }
       });
 
-      // Measure header height so viewport fills remaining space cleanly.
       function setHeaderHeight() {
         const h = document.querySelector<HTMLElement>("header");
         if (!h) return;
@@ -241,23 +346,25 @@ const translate = `translate3d(-${activeIndex * 100}%, 0, 0)`;
 
       .spaces-track {
         display: flex;
-        width: 300%;
+        width: 400%;
         height: 100%;
         will-change: transform;
       }
 
       .space {
-        width: calc(100% / 3);
+        width: calc(100% / 4);
         height: 100%;
         overflow-y: auto;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
+        --space-pad: clamp(1.25rem, 4vw, 2rem);
       }
 
       .space-inner {
         max-width: var(--max-width);
         margin: 0 auto;
-        padding: 0 clamp(1.25rem, 4vw, 2rem) clamp(4rem, 10vw, 8rem);
+        padding: 0 var(--space-pad) clamp(4rem, 10vw, 8rem);
       }
 
     </style>

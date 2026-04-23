@@ -72,4 +72,12 @@ const fmt = (d: Date) =>
     text-underline-offset: 0.18em;
     text-decoration-thickness: 1px;
   }
+
+  /* Hero morph: the entry carrying `data-hero="true"` (set by the click
+     handler on forward nav or the pagereveal handler on back nav) joins
+     the detail page's `.meta` block via a shared `hero` view-transition
+     group. Only one entry is ever marked at a time. */
+  .entry[data-hero="true"] {
+    view-transition-name: hero;
+  }
 </style>

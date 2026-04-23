@@ -1,0 +1,439 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Footer from "../../components/Footer.astro";
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+
+export async function getStaticPaths() {
+  const albums = await getCollection("albums");
+  return albums.map((a) => ({ params: { slug: a.id }, props: { album: a } }));
+}
+
+interface Props {
+  album: CollectionEntry<"albums">;
+}
+
+const { album } = Astro.props;
+
+// Ensure the cover photo is always the lead frame, regardless of its
+// position in the authored markdown body. The original migration script
+// preserved body order, which meant the list card (showing `cover`) and
+// the detail's first frame (showing `photos[0]`) could be different
+// images for albums where cover wasn't written first.
+const rawPhotos = album.data.photos ?? [];
+const coverIdx = rawPhotos.findIndex((p) => p.src === album.data.cover);
+const photos =
+  coverIdx > 0
+    ? [rawPhotos[coverIdx], ...rawPhotos.slice(0, coverIdx), ...rawPhotos.slice(coverIdx + 1)]
+    : rawPhotos;
+
+// Google Maps search URL. The area field reads like "Japan · Tokyo · Asakusa"
+// from broad to narrow; Maps' search parser likes the opposite — narrow to
+// broad, comma-separated ("Asakusa, Tokyo, Japan"). Flip and rejoin.
+const areaParts = album.data.area
+  .split(/\s*·\s*/)
+  .map((s) => s.trim())
+  .filter(Boolean);
+const mapsQuery =
+  areaParts.length > 0 ? areaParts.slice().reverse().join(", ") : album.data.area;
+const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
+
+const fmt = (d: Date) =>
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+---
+
+<Layout title={`${album.data.title} — Albums`}>
+  <article class="album">
+    <a class="back" href="/albums/">
+      <span class="arrow" aria-hidden="true">←</span>
+      <span>Albums</span>
+    </a>
+
+    <header class="head">
+      <h1>{album.data.title}</h1>
+      <p class="meta">
+        <time datetime={album.data.date.toISOString()}>
+          {fmt(album.data.date)}
+        </time>
+        <span class="dot" aria-hidden="true">·</span>
+        <a
+          class="area-link"
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Open ${mapsQuery} in Google Maps`}
+        >
+          <span class="area">{album.data.area}</span>
+          <svg
+            class="pin"
+            viewBox="0 0 12 12"
+            width="12"
+            height="12"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M6 1.5c-2 0-3.3 1.6-3.3 3.3 0 2.5 3.3 5.7 3.3 5.7s3.3-3.2 3.3-5.7c0-1.7-1.3-3.3-3.3-3.3z"
+              stroke="currentColor"
+              stroke-width="1.1"
+              stroke-linejoin="round"
+            />
+            <circle cx="6" cy="4.9" r="1.1" stroke="currentColor" stroke-width="1.1" />
+          </svg>
+        </a>
+      </p>
+    </header>
+
+    <ol class="stream" role="list">
+      {photos.map((p, i) => (
+        <li class={`frame ${i === 0 ? "lead" : ""}`}>
+          <figure>
+            <span class="skeleton" aria-hidden="true"></span>
+            <img
+              class="stream-img"
+              src={p.src}
+              alt={p.alt ?? album.data.title}
+              loading={i === 0 ? "eager" : "lazy"}
+              decoding="async"
+            />
+          </figure>
+        </li>
+      ))}
+    </ol>
+  </article>
+  <Footer />
+</Layout>
+
+<script>
+  // Aspect ratio < this triggers the portrait size constraint. 1.0
+  // catches anything taller than it is wide; 1:1 and wider go full-bleed.
+  // Chosen because portraits at 100vw become viewport-tall walls of
+  // image that dominate the scroll experience — the constraint keeps
+  // them readable while landscape photos claim the full canvas.
+  const PORTRAIT_ASPECT_THRESHOLD = 1.0;
+
+  interface ViewTransitionLike {
+    finished: Promise<void>;
+  }
+
+  function tagAspect(img: HTMLImageElement) {
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    const aspect = img.naturalWidth / img.naturalHeight;
+    if (aspect < PORTRAIT_ASPECT_THRESHOLD) {
+      img.closest<HTMLElement>(".frame")?.setAttribute("data-portrait", "true");
+    }
+  }
+
+  function unlockLead(frame: HTMLElement) {
+    // For the landscape lead frame, defer the full-bleed expansion until
+    // the hero morph has completed — otherwise the morph target shape
+    // would change mid-flight. On fresh loads without a view transition,
+    // unlock on the next frame so the first paint shows the constrained
+    // hero size briefly, then expands for visual impact.
+    //
+    // Portrait leads are already at their final bounded size — no
+    // expansion needed.
+    if (frame.getAttribute("data-portrait") === "true") return;
+    const transition = (
+      window as unknown as { __pageRevealTransition?: ViewTransitionLike | null }
+    ).__pageRevealTransition;
+    const doUnlock = () => frame.classList.add("is-unlocked");
+    if (transition && typeof transition.finished?.then === "function") {
+      transition.finished.then(doUnlock);
+    } else {
+      requestAnimationFrame(doUnlock);
+    }
+  }
+
+  function markLoaded(img: HTMLImageElement) {
+    tagAspect(img);
+    const frame = img.closest<HTMLElement>(".frame");
+    if (!frame) return;
+    frame.classList.add("is-loaded");
+    if (frame.classList.contains("lead")) {
+      unlockLead(frame);
+    }
+  }
+
+  document
+    .querySelectorAll<HTMLImageElement>(".stream-img")
+    .forEach((img) => {
+      if (img.complete) {
+        markLoaded(img);
+        return;
+      }
+      img.addEventListener("load", () => markLoaded(img), { once: true });
+      img.addEventListener("error", () => markLoaded(img), { once: true });
+    });
+</script>
+
+<style>
+  .album {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.5rem, 3.5vw, 2.5rem);
+  }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    align-self: flex-start;
+    transition: color 180ms ease;
+  }
+
+  .back:hover {
+    color: var(--ink);
+  }
+
+  .back .arrow {
+    display: inline-block;
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .back:hover .arrow {
+    transform: translateX(-3px);
+  }
+
+  .head {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 4.5vw, 2.75rem);
+    font-weight: 460;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    font-variation-settings: "opsz" 48;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-family: var(--font-serif);
+    font-size: 0.9375rem;
+    color: var(--ink-soft);
+    font-variation-settings: "opsz" 14;
+  }
+
+  .meta time {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    color: var(--ink-faint);
+    font-feature-settings: "tnum";
+  }
+
+  .meta .dot {
+    color: var(--ink-faint);
+  }
+
+  .meta .area {
+    font-style: italic;
+  }
+
+  /* Area doubles as a Google Maps link. Kept subdued — underline on
+     hover, small pin icon fades in. Keeps the default resting look
+     identical to before so the meta line doesn't shout "click me". */
+  .area-link {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35em;
+    color: inherit;
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+
+  .area-link:hover {
+    color: var(--accent);
+  }
+
+  .area-link:hover .area {
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
+  }
+
+  .area-link .pin {
+    opacity: 0;
+    transform: translateY(1px);
+    transition:
+      opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    flex-shrink: 0;
+  }
+
+  .area-link:hover .pin,
+  .area-link:focus-visible .pin {
+    opacity: 0.8;
+    transform: translateY(-0.5px);
+  }
+
+  .area-link:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+    color: var(--accent);
+  }
+
+  .stream {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2rem, 4.5vw, 3.5rem);
+    margin-top: clamp(1rem, 2.5vw, 2rem);
+  }
+
+  .frame {
+    margin: 0;
+    /* NOTE: do NOT set `content-visibility: auto` here. It implicitly
+       applies `contain: style layout paint`, and the `paint`
+       containment clips ALL descendant painting to the element's
+       padding box. Our figure uses `width: 100vw` + negative margin
+       to break out of the 42rem text container — with paint
+       containment, that breakout is still in the layout tree but only
+       the portion inside the 608px .frame box actually gets drawn,
+       leaving fireworks-wide photos looking like narrow portraits.
+       Detail pages have few enough images that native `loading="lazy"`
+       is sufficient for bandwidth; we don't need content-visibility. */
+  }
+
+  /*
+   * Layout philosophy: landscape photos get the full canvas (100vw),
+   * portrait photos stay bounded (would otherwise become viewport-tall
+   * walls). The list cover forces 3:2 — so during the hero morph the
+   * lead frame is held at a 95rem rectangle to match the card's shape;
+   * after the view transition finishes, landscape leads "unlock" into
+   * the full-bleed width via a CSS transition. Portrait leads skip the
+   * unlock entirely (already at final size).
+   */
+
+  /* Default (landscape, non-lead): full-bleed. No border radius, no
+     container gutters — the image dominates the scroll. */
+  .frame figure {
+    position: relative;
+    margin: 0;
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    overflow: hidden;
+    border-radius: 0;
+    background: color-mix(in oklab, var(--ink-faint) 10%, var(--bg));
+    isolation: isolate;
+  }
+
+  /* Portrait photos: constrained to a readable width so they don't push
+     everything else off screen. Border radius returns for the smaller
+     framed feeling. */
+  .frame[data-portrait="true"] figure {
+    width: min(50rem, calc(100vw - 2.5rem));
+    max-width: min(50rem, calc(100vw - 2.5rem));
+    margin-left: calc((100% - min(50rem, calc(100vw - 2.5rem))) / 2);
+    border-radius: 3px;
+  }
+
+  /* Lead: always carries the hero view-transition name and starts at
+     the 95rem settle size regardless of aspect — so the morph from the
+     3:2 list cover is a bounded shape change, not a jump to full-bleed
+     while content crossfades. Landscape leads unlock to 100vw after
+     the transition; portrait leads inherit the narrower portrait rule. */
+  .frame.lead figure {
+    width: min(95rem, calc(100vw - 2rem));
+    max-width: min(95rem, calc(100vw - 2rem));
+    margin-left: calc((100% - min(95rem, calc(100vw - 2rem))) / 2);
+    border-radius: 3px;
+    view-transition-name: hero;
+    will-change: transform;
+  }
+
+  /* Lead portrait: stays bounded even smaller. No unlock. */
+  .frame.lead[data-portrait="true"] figure {
+    width: min(60rem, calc(100vw - 2.5rem));
+    max-width: min(60rem, calc(100vw - 2.5rem));
+    margin-left: calc((100% - min(60rem, calc(100vw - 2.5rem))) / 2);
+  }
+
+  /* Lead landscape, post-morph: expand to full-bleed with a gentle
+     transition so the unlock reads as a deliberate reveal. */
+  .frame.lead.is-unlocked:not([data-portrait="true"]) figure {
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    border-radius: 0;
+    transition:
+      width 720ms cubic-bezier(0.22, 1, 0.36, 1),
+      max-width 720ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-left 720ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-radius 720ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Skeleton: solid color layer, opacity-only pulsing so all motion stays
+     on the compositor. Fades out cleanly when the image arrives. */
+  .skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: color-mix(in oklab, var(--ink-faint) 16%, var(--bg));
+    opacity: 0.55;
+    animation: skeleton-pulse 1.8s ease-in-out infinite;
+    transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity;
+    pointer-events: none;
+  }
+
+  @keyframes skeleton-pulse {
+    0%,
+    100% {
+      opacity: 0.45;
+    }
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  .frame.is-loaded .skeleton {
+    opacity: 0;
+    animation: none;
+  }
+
+  /* Images: no opacity transition. The skeleton layer above the image
+     provides the loading state; as soon as the image decodes, the
+     skeleton fades and reveals it. This avoids racing a CSS transition
+     against the view-transition snapshot window. */
+  .stream-img {
+    position: relative;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    height: auto;
+    /* Placeholder aspect before the image decodes so layout doesn't
+       collapse to 0 height and then pop back. `auto` keyword lets the
+       browser use the image's intrinsic aspect once known; the 3/2
+       fallback covers the decode window. Without this, frames enter
+       view at 0 height (or intrinsic-size estimate), jolt open when
+       pixels arrive, and drop frames during transitions. */
+    aspect-ratio: auto 3 / 2;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton,
+    .back .arrow {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>

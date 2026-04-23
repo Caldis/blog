@@ -54,6 +54,12 @@
   --accent: oklch(32% 0.07 245);
   --accent-strong: oklch(26% 0.08 245);
 
+  /* Paper noise texture — referenced by body::before and by anything
+     that needs to establish its own noised backdrop inside a stacking
+     context the global overlay can't reach (e.g. surfaces sitting
+     inside a `transform`ed ancestor). */
+  --noise-svg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='3' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+
   --font-serif: "Newsreader", "Newsreader Fallback", "Iowan Old Style",
     "Palatino Linotype", "Book Antiqua", Georgia, "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", serif;
@@ -90,7 +96,7 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='3' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-image: var(--noise-svg);
   opacity: 0.2;
   mix-blend-mode: multiply;
 }
@@ -132,22 +138,51 @@ p {
   navigation: auto;
 }
 
-@keyframes spaces-fade-out {
-  to { opacity: 0; }
-}
-@keyframes spaces-fade-in {
-  from { opacity: 0; }
+/*
+ * View-transition architecture: two named groups.
+ *
+ *   root — everything not explicitly named. Soft fade across pages; this
+ *   carries the header, the rest of the list, the rest of the detail
+ *   article, and anything that isn't the focal element.
+ *
+ *   hero — the clicked item on a list ↔ the top-of-article block on its
+ *   detail page. Browser morphs the box (position/size/radius) from one
+ *   side to the other. Content inside crossfades over a shorter window
+ *   so the eye anchors on the new-in-new-place picture while the frame
+ *   is still flying.
+ *
+ * Why the split durations inside the hero group (box 540ms, content
+ * 220ms): iOS's "tap to zoom" is perceptually a moving frame with stable
+ * content inside it. If the old/new content pseudos fade for the full
+ * 540ms, the box feels mushy. 220ms swaps the picture early; the longer
+ * group transform then just redraws the same picture at progressively
+ * larger sizes, which is what the brain expects from "this thing grew".
+ */
+
+/* Root: soft fade for everything that isn't the hero. Short window so
+   the compositor doesn't hold the full-page snapshot on GPU any longer
+   than necessary — long-page albums can otherwise produce frame drops. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-::view-transition-old(page),
-::view-transition-new(page) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+/* Hero group, box animation (transform + size). Critically-damped curve
+   — no overshoot, smooth deceleration, matches iOS system navigations.
+   Tightened from 540 → 420ms: iOS itself sits around 400ms for system
+   transitions, and fewer frames to composite means fewer chances to
+   drop a frame under heavy page content. */
+::view-transition-group(hero) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
-::view-transition-old(page) {
-  animation-name: spaces-fade-out;
-}
-::view-transition-new(page) {
-  animation-name: spaces-fade-in;
+
+/* Hero content crossfade: short and linear so the box morph is the
+   dominant motion. */
+::view-transition-old(hero),
+::view-transition-new(hero) {
+  animation-duration: 180ms;
+  animation-timing-function: linear;
 }
 
