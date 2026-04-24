@@ -1,0 +1,90 @@
+---
+/**
+ * Caldis logo mark — reusable inline SVG.
+ *
+ * All geometry reads from `./geometry.ts`; iterate visuals there.
+ *
+ * Props:
+ *   • class — passthrough class on the outer <svg>
+ *   • gradientId — override if multiple instances appear on one page
+ *     (SVG requires unique ids within a document or references alias)
+ *   • background — when set, paints a solid tile behind the mark
+ *     (used by the favicon variant); omit for in-context use where
+ *     the mark should layer on the page's own paper texture
+ *   • strokeColor — defaults to `currentColor` so the mark inherits
+ *     its surrounding type color; override for the favicon which
+ *     needs an explicit ink hex (no currentColor inheritance in
+ *     standalone .svg files)
+ */
+import {
+  MARK_VIEWBOX,
+  FRAME,
+  DIAGONAL,
+  DIAGONAL_FADE,
+} from "./geometry";
+
+interface Props {
+  class?: string;
+  gradientId?: string;
+  background?: string;
+  strokeColor?: string;
+}
+
+const {
+  class: className,
+  gradientId = "caldis-mark-diag",
+  background,
+  strokeColor = "currentColor",
+} = Astro.props;
+---
+
+<svg
+  class={className}
+  viewBox={`0 0 ${MARK_VIEWBOX} ${MARK_VIEWBOX}`}
+  aria-hidden="true"
+  focusable="false"
+>
+  <defs>
+    <linearGradient
+      id={gradientId}
+      gradientUnits="userSpaceOnUse"
+      x1={DIAGONAL.x1}
+      y1={DIAGONAL.y1}
+      x2={DIAGONAL.x2}
+      y2={DIAGONAL.y2}
+    >
+      <stop
+        offset="0"
+        stop-color={strokeColor}
+        stop-opacity={DIAGONAL_FADE.maxAlpha}></stop>
+      <stop
+        offset="1"
+        stop-color={strokeColor}
+        stop-opacity={DIAGONAL_FADE.minAlpha}></stop>
+    </linearGradient>
+  </defs>
+
+  {background && (
+    <rect width={MARK_VIEWBOX} height={MARK_VIEWBOX} fill={background}></rect>
+  )}
+
+  <rect
+    x={FRAME.x}
+    y={FRAME.y}
+    width={FRAME.w}
+    height={FRAME.h}
+    fill="none"
+    stroke={strokeColor}
+    stroke-width={FRAME.stroke}
+    stroke-linejoin="miter"
+  ></rect>
+  <line
+    x1={DIAGONAL.x1}
+    y1={DIAGONAL.y1}
+    x2={DIAGONAL.x2}
+    y2={DIAGONAL.y2}
+    stroke={`url(#${gradientId})`}
+    stroke-width={DIAGONAL.stroke}
+    stroke-linecap="butt"
+  ></line>
+</svg>

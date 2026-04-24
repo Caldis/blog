@@ -1,11 +1,21 @@
+<!--
+  Caldis logo — favicon.
+
+  DO NOT edit geometry here in isolation. Single source of truth for
+  the mark lives at:
+    src/brand/geometry.ts   (numeric constants)
+    src/brand/LogoMark.astro (reusable inline component)
+
+  This file is served directly at /favicon.svg by the browser, so
+  it can't be generated at Astro render time. When the geometry
+  changes, mirror the new numbers here manually. Values below match
+  the constants in geometry.ts at the time of the last sync.
+
+    FRAME:     x=5 y=5 w=22 h=22 stroke=1.75
+    DIAGONAL:  (11,22) → (22,11) stroke=3.25
+    FADE:      100% at bottom terminal → 50% at top terminal
+-->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!--
-    Caldis logo mark v3. Same hierarchy as v2 (light frame + bold
-    diagonal), but the diagonal now fades bottom→top, full at its
-    lower terminal and 50% at the upper. Reads as "the italic stroke
-    lifting off the page", and matches the About page's interactive
-    dot-matrix rendering where diagonal dots fade along the same axis.
-  -->
   <defs>
     <linearGradient
       id="diag"
