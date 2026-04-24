@@ -17,3 +17,6 @@ dist/
 .DS_Store
 *.pem
 .playwright-mcp/
+
+# dev-time screenshots / puppeteer scratch (always put throwaway screenshots here)
+tmp/
