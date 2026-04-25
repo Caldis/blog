@@ -6,8 +6,9 @@ interface Props {
   title?: string;
 }
 
-const { title = "Thoughts" } = Astro.props;
+const { title } = Astro.props;
 const currentPath = Astro.url.pathname;
+const fullTitle = title ? `${title} — Caldis's Blog` : "Caldis's Blog";
 ---
 
 <!doctype html>
@@ -15,7 +16,7 @@ const currentPath = Astro.url.pathname;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <title>{fullTitle}</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link
       rel="preload"
@@ -61,12 +62,64 @@ const currentPath = Astro.url.pathname;
     </script>
   </head>
   <body>
+    <Header currentPath={currentPath} />
     <div class="container">
-      <Header currentPath={currentPath} />
       <main>
         <slot />
       </main>
     </div>
+
+    <script>
+      // Detail pages use document scroll. Mirror the SpacesLayout
+      // behavior: measure the masthead's current height into
+      // --header-height (used by .container's top padding) and toggle
+      // [data-scrolled] on the header so its bottom hairline fades in
+      // once the page has moved past origin.
+      function setHeaderHeight() {
+        const h = document.querySelector<HTMLElement>("header");
+        if (!h) return;
+        document.documentElement.style.setProperty(
+          "--header-height",
+          `${h.getBoundingClientRect().height}px`
+        );
+      }
+      setHeaderHeight();
+      window.addEventListener("resize", setHeaderHeight);
+      if (document.fonts?.ready) {
+        document.fonts.ready.then(setHeaderHeight);
+      }
+
+      // Match the SpacesLayout fix: detail pages scroll the document,
+      // so the gutter reservation comes from the natural document
+      // scrollbar. innerWidth includes it, documentElement.clientWidth
+      // doesn't — diff = scrollbar width. Header consumes via
+      // padding-right: var(--scrollbar-w).
+      function setScrollbarWidth() {
+        const w = window.innerWidth - document.documentElement.clientWidth;
+        document.documentElement.style.setProperty(
+          "--scrollbar-w",
+          `${w}px`
+        );
+      }
+      setScrollbarWidth();
+      window.addEventListener("resize", setScrollbarWidth);
+
+      const SCROLL_THRESHOLD = 4;
+      const siteHeader = document.querySelector<HTMLElement>(
+        "header.site-header"
+      );
+
+      function syncHeaderScrolled() {
+        if (!siteHeader) return;
+        const should = window.scrollY > SCROLL_THRESHOLD;
+        if (siteHeader.hasAttribute("data-scrolled") !== should) {
+          if (should) siteHeader.setAttribute("data-scrolled", "");
+          else siteHeader.removeAttribute("data-scrolled");
+        }
+      }
+      window.addEventListener("scroll", syncHeaderScrolled, { passive: true });
+      syncHeaderScrolled();
+    </script>
   </body>
 </html>
 
@@ -74,7 +127,14 @@ const currentPath = Astro.url.pathname;
   .container {
     max-width: var(--max-width);
     margin: 0 auto;
-    padding: 0 clamp(1.25rem, 4vw, 2rem);
+    /*
+     * Top padding clears the fixed-overlay masthead. Without this, the
+     * article's first element (back link, hero image) would sit
+     * underneath the bar at scroll origin. As the user scrolls, the
+     * content passes through the bar's translucent backdrop instead of
+     * being abruptly clipped.
+     */
+    padding: calc(var(--header-height, 4.5rem) + 1.25rem) clamp(1.25rem, 4vw, 2rem) 0;
   }
 
   main {

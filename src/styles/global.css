@@ -46,6 +46,13 @@
 :root {
   --max-width: 42rem;
 
+  /* First-paint fallback for the fixed-overlay header height. Layout
+     code measures the actual height after fonts load and overrides this
+     on <html>, but a sane default avoids a content jump on the first
+     paint before the override lands. ~72px matches the bar's resting
+     size at default viewport. */
+  --header-height: 4.5rem;
+
   --bg: #e6e0d2;
   --ink: #1b1917;
   --ink-soft: #5a544c;
@@ -54,11 +61,19 @@
   --accent: oklch(32% 0.07 245);
   --accent-strong: oklch(26% 0.08 245);
 
-  /* Paper noise texture — referenced by body::before and by anything
-     that needs to establish its own noised backdrop inside a stacking
-     context the global overlay can't reach (e.g. surfaces sitting
-     inside a `transform`ed ancestor). */
+  /* Paper noise texture — used by surfaces that establish their own
+     noised backdrop inside a stacking context the html canvas can't
+     reach (e.g. .year::before, inside a transform'd ancestor with
+     its own solid bg). Alpha 0.5, painted at opacity 0.2 with
+     mix-blend-mode: multiply by each consumer. */
   --noise-svg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='3' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+
+  /* Low-alpha variant for painting directly on <html>'s canvas with
+     background-blend-mode: multiply. Canvas paints the full visual
+     viewport including the scrollbar gutter — which fixed overlays
+     can't reach. Alpha 0.1 yields the same "bg × 0.9 at noise spots"
+     effect as the original body::before (opacity 0.2 × alpha 0.5). */
+  --noise-svg-canvas: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='3' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 
   --font-serif: "Newsreader", "Newsreader Fallback", "Iowan Old Style",
     "Palatino Linotype", "Book Antiqua", Georgia, "PingFang SC",
@@ -80,7 +95,107 @@ html {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* No `scrollbar-gutter: stable` here: on spaces pages body is
+     `overflow: hidden; height: 100vh` and document never scrolls, so a
+     stable html gutter would reserve an empty strip right of body that
+     body::before (fixed, scrollport-clipped) can't cover. Detail pages
+     use the article's long content, which keeps a scrollbar present
+     most of the time; occasional short-to-long jitter is acceptable.
+     Each `.space` panel keeps its own scrollbar-gutter: stable. */
 }
+
+/*
+ * Scrollbar styling + gutter noise fix.
+ *
+ * `scrollbar-gutter: stable` on <html> reserves a vertical strip outside
+ * the scrollport. body::before (position: fixed) is clipped to the
+ * scrollport and leaves that strip as plain --bg — visibly different
+ * from the noised content area.
+ *
+ * Investigated via Playwright + pixel sampling (Chromium):
+ *   - html's `background-color` propagates to the gutter ✓
+ *   - html's `background-image` (even CSS gradient) partially propagates,
+ *     but SVG / PNG data URLs do not. Can't rely on it for texture.
+ *   - `::-webkit-scrollbar-track` DOES paint in the gutter when the
+ *     scrollbar is rendered. Using the track to carry the noise matches
+ *     the content area's noised paper exactly.
+ *
+ * Track uses --noise-svg-canvas (alpha 0.1) with default `normal` blend:
+ * rendered over --bg solid, each noise pixel darkens to ~bg * 0.9. That
+ * matches the intensity body::before achieves via opacity 0.2 + multiply
+ * over the same --bg. See sampled pixels: content avg_r ≈ 218 ± 2,
+ * track avg_r ≈ 218 ± 2 — visually identical.
+ */
+/* Width must match the gutter reserved by scrollbar-gutter: stable
+   (~17px in Chromium). Narrower scrollbars leave part of the gutter
+   outside the track, where the noise won't reach. Thumb looks narrow
+   via the transparent border + background-clip trick below. */
+*::-webkit-scrollbar {
+  width: 17px;
+  height: 17px;
+}
+
+*::-webkit-scrollbar-track {
+  background-color: var(--bg);
+  background-image: var(--noise-svg-canvas);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--ink-faint) 55%, transparent);
+  border-radius: 999px;
+  /* 5px transparent border with background-clip: padding-box renders
+     the visible thumb at 7px (17 - 5*2) while keeping the scrollbar
+     itself at full gutter width. */
+  border: 5px solid transparent;
+  background-clip: padding-box;
+  /* NOTE: `filter` and `opacity` on ::-webkit-scrollbar-thumb are
+     accepted by the parser but Chromium's compositor does not honor
+     them at paint time (long-standing engine limitation). Only
+     `background` is reliable for animating the thumb's visibility.
+     If a real blur-fade is required, the scrollbar has to be
+     self-rendered (regular DOM element with `position: fixed` and
+     filter:blur), not the native ::-webkit-scrollbar-thumb. */
+  transition: background 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--ink-soft) 70%, transparent);
+  background-clip: padding-box;
+}
+
+/* While the spaces track is animating between panels, hide each
+   panel's thumb (each .space has its own scrollbar at its respective
+   scrollTop, so the four thumbs visibly fly across the viewport
+   alongside the horizontal slide).
+   The reliable load-bearing property here is `background: transparent`
+   — Chromium honors that on ::-webkit-scrollbar-thumb. opacity and
+   filter are kept as progressive enhancement: in builds that respect
+   them they add a soft blur-resolve to the reveal; in builds that
+   ignore them, the background-color transition still produces a clean
+   fade. The hiding is instant (transition: none) so the four thumbs
+   don't broadcast their differing positions on the way out; once the
+   attr clears, the base rule's 480ms transition takes over and the
+   thumb refocuses from blur(30px) + opacity 0 back to blur(0) +
+   opacity 1, while background eases back from transparent to its
+   resting tone. */
+[data-spaces-transitioning] .space::-webkit-scrollbar-thumb {
+  background: transparent;
+  transition: none;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* DO NOT set `scrollbar-width: thin` globally — Chromium ignores
+   ::-webkit-scrollbar-* styles entirely when `scrollbar-width` is
+   present, which collapses the track back to a thin strip and
+   uncovers the gutter. Firefox users get the native scrollbar
+   (acceptable: no gutter artifact on Firefox anyway). */
 
 body {
   font-size: 1rem;

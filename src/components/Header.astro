@@ -15,39 +15,150 @@ interface Props {
 }
 ---
 
-<header>
-  <a class="wordmark" href="/thoughts">
-    <LogoMark class="mark" gradientId="caldis-mark-header" />
-    <span class="wordmark-text">Caldis's Blog</span>
-  </a>
-  <nav aria-label="Primary">
-    {nav.map(({ name, href }, i) => {
-      const isActive = currentPath.startsWith(href);
-      return (
-        <Fragment>
-          {i > 0 && <span class="sep" aria-hidden="true">·</span>}
-          <a
-            href={href}
-            data-label={name}
-            aria-current={isActive ? "page" : undefined}
-            class:list={[{ active: isActive }]}
-          >
-            <span>{name}</span>
-          </a>
-        </Fragment>
-      );
-    })}
-    <span class="nav-indicator" aria-hidden="true"></span>
-  </nav>
+<header class="site-header" data-site-header>
+  <div class="header-inner">
+    <a class="wordmark" href="/thoughts">
+      <LogoMark class="mark" gradientId="caldis-mark-header" />
+      <span class="wordmark-text">Caldis's Blog</span>
+    </a>
+    <nav aria-label="Primary">
+      {nav.map(({ name, href }, i) => {
+        const isActive = currentPath.startsWith(href);
+        return (
+          <Fragment>
+            {i > 0 && <span class="sep" aria-hidden="true">·</span>}
+            <a
+              href={href}
+              data-label={name}
+              aria-current={isActive ? "page" : undefined}
+              class:list={[{ active: isActive }]}
+            >
+              <span>{name}</span>
+            </a>
+          </Fragment>
+        );
+      })}
+      <span class="nav-indicator" aria-hidden="true"></span>
+    </nav>
+  </div>
 </header>
 
 <style>
-  header {
+  /*
+   * Fixed-overlay masthead. Spans the full viewport width and floats
+   * above scrolling content. Translucent paper-tone bg + backdrop blur
+   * lets content gracefully diffuse under the bar instead of being
+   * abruptly cut off where the old header used to sit. The previous
+   * design parked the header in flow above the scrolling region, which
+   * meant content was sliced cleanly along the header's bottom edge —
+   * the issue this immersive treatment exists to fix.
+   *
+   * The visual identity is intentionally preserved: same Newsreader
+   * masthead role, same ghost-label nav technique (so weight changes
+   * don't shift siblings), same 1px indicator. Only the surface
+   * treatment and positioning change.
+   */
+  .site-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+
+    /*
+     * Default state: fully transparent. The wordmark and nav float
+     * unframed over the paper, no surface chrome announces a header
+     * exists at scroll origin. Once the page has been scrolled, the
+     * [data-scrolled] state engages the blur + bg + bottom hairline
+     * — that's when content needs to be visually anchored against
+     * what's moving underneath.
+     */
+    background: transparent;
+    transition:
+      background-color 280ms ease,
+      backdrop-filter 280ms ease;
+
+    /*
+     * Reserve the same right-side gutter that the scrolling content
+     * pane reserves via `scrollbar-gutter: stable`. Without this, the
+     * fixed header centers against the full viewport (e.g. 1920px),
+     * but .space-inner / .container centers against viewport minus
+     * the scrollbar gutter (e.g. 1903px) — wordmark and content
+     * titles end up off-axis by ~8px. The CSS variable is measured by
+     * the layout-level scripts; falls back to 0 on first paint and
+     * on platforms with overlay scrollbars (no gutter to reserve).
+     */
+    padding-right: var(--scrollbar-w, 0px);
+  }
+
+  /* Engaged state: the bar materializes when the page leaves the
+     scroll origin. Translucent paper-tone bg + backdrop blur let
+     content gracefully diffuse beneath the bar instead of being
+     abruptly clipped. */
+  .site-header[data-scrolled] {
+    background: color-mix(in oklab, var(--bg) 78%, transparent);
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  }
+
+  /*
+   * Bottom hairline. Hidden when the page is at scroll origin (no
+   * content underneath the bar to delineate from). Fades in once the
+   * user has begun scrolling — the toggle is driven by layout-level
+   * scroll listeners that set [data-scrolled] on this element.
+   *
+   * Uses --rule (the same warm-ink-on-cream divider already used by
+   * <hr> and the footer top border) so the bar belongs to the same
+   * editorial vocabulary, not a generic chrome line.
+   */
+  .site-header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--rule);
+    opacity: 0;
+    transition: opacity 280ms ease;
+    pointer-events: none;
+  }
+
+  .site-header[data-scrolled]::after {
+    opacity: 0.7;
+  }
+
+  /*
+   * Inner column aligns with the article content below. The outer bar
+   * is full-bleed so the bg + blur extend to viewport edges; the inner
+   * holds the same max-width / horizontal gutter that .space-inner and
+   * the article container use, so wordmark and nav line up with the
+   * text column they introduce.
+   *
+   * Vertical padding is tighter than the original (which was generous
+   * page-top spacing). A fixed bar can't afford 4rem of vertical real
+   * estate — the masthead would crowd content on smaller viewports.
+   * The clamp lands at ~16-22px each side, putting total bar height
+   * around 60-75px. Visual weight matches the surrounding type.
+   */
+  .header-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    /* Vertical clamp doubled from the original compact bar so the
+       masthead carries closer to the original editorial breathing room
+       — the bar is fixed-overlay but no longer feels like a thin chrome
+       strip. */
+    padding: clamp(2rem, 4.8vw, 2.75rem) clamp(1.25rem, 4vw, 2rem);
     display: flex;
+    /* `baseline` aligns the text baselines of the two flex items, but
+       nav anchors carry an extra 0.22em of padding-bottom for the hover
+       underline — that pushes their box bottoms below the baseline,
+       making the (shorter) wordmark visually float toward the top. Use
+       `center` so the two items center against each other regardless of
+       inner padding. */
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     gap: 1.5rem;
-    padding: clamp(2rem, 5vw, 3rem) 0 clamp(2.5rem, 6vw, 4rem);
     flex-wrap: wrap;
   }
 
@@ -55,6 +166,7 @@ interface Props {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    white-space: nowrap;
     font-family: var(--font-serif);
     font-size: 1.375rem;
     font-weight: 480;
@@ -68,8 +180,12 @@ interface Props {
      center. Serif caps sit slightly above line center, so pure
      `align-items: center` reads as mark sitting a hair low; a small
      negative translateY (~0.05em) aligns mark-center with cap-center
-     without lifting it clear of the "C". */
-  .wordmark .mark {
+     without lifting it clear of the "C".
+     :global() is required — the .mark svg comes from the imported
+     LogoMark component, so Astro's default scoped styles don't match
+     it. Without this, the svg has no explicit size and collapses to
+     0 when the flex container needs to fit the (now nowrap) text. */
+  .wordmark :global(.mark) {
     width: 1em;
     height: 1em;
     flex-shrink: 0;

@@ -11,8 +11,9 @@ interface Props {
   activeIndex: 0 | 1 | 2 | 3;
 }
 
-const { title = "Caldis's Blog", activeIndex } = Astro.props;
+const { title, activeIndex } = Astro.props;
 const currentPath = Astro.url.pathname;
+const fullTitle = title ? `${title} — Caldis's Blog` : "Caldis's Blog";
 const translate = `translate3d(-${activeIndex * 100 / 4 * 4}%, 0, 0)`;
 // equivalent: -activeIndex * 100% of viewport. Track is 400% wide,
 // each space is 25% of track = 100vw. Shifting by (index * 25%) of track
@@ -28,7 +29,7 @@ const trackTranslate = `translate3d(-${activeIndex * 25}%, 0, 0)`;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <title>{fullTitle}</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link
       rel="preload"
@@ -136,9 +137,7 @@ const trackTranslate = `translate3d(-${activeIndex * 25}%, 0, 0)`;
         );
       })();
     </script>
-    <div class="header-slot">
-      <Header currentPath={currentPath} />
-    </div>
+    <Header currentPath={currentPath} />
     <main class="spaces-viewport">
       <div
         class="spaces-track"
@@ -243,6 +242,41 @@ const trackTranslate = `translate3d(-${activeIndex * 25}%, 0, 0)`;
         syncNavActive(idx);
       });
 
+      // Hide each panel's custom-rendered scrollbar thumb during a
+      // space transition. Each .space has its own vertical scrollbar
+      // at its respective scrollTop; when .spaces-track translates
+      // horizontally, all four thumbs visibly fly across the viewport
+      // along with their panels. Toggling [data-spaces-transitioning]
+      // on <html> for the duration of the transform animation makes
+      // the thumbs fade to transparent (the base rule already has
+      // transition: background 180ms ease) so the gutter reads as a
+      // clean track strip during the slide; the thumb fades back in
+      // once the destination panel has settled.
+      //
+      // Hook directly into the .spaces-track's transition events
+      // rather than the higher-level spaces:change event — the latter
+      // also fires during initSpaces() with no transform animation,
+      // which would leave the attribute stuck "on" forever (no
+      // transitionend ever arrives to clear it).
+      const trackEl = document.querySelector<HTMLElement>(".spaces-track");
+      const isTransform = (e: Event) =>
+        (e as TransitionEvent).propertyName === "transform";
+      trackEl?.addEventListener("transitionstart", (e) => {
+        if (!isTransform(e)) return;
+        document.documentElement.setAttribute(
+          "data-spaces-transitioning",
+          ""
+        );
+      });
+      const clearTransitioning = (e: Event) => {
+        if (!isTransform(e)) return;
+        document.documentElement.removeAttribute(
+          "data-spaces-transitioning"
+        );
+      };
+      trackEl?.addEventListener("transitionend", clearTransitioning);
+      trackEl?.addEventListener("transitioncancel", clearTransitioning);
+
       initSpaces();
       initAlbums();
       initHero();
@@ -321,6 +355,63 @@ const trackTranslate = `translate3d(-${activeIndex * 25}%, 0, 0)`;
       if (document.fonts?.ready) {
         document.fonts.ready.then(setHeaderHeight);
       }
+
+      // Scrollbar gutter compensation: each .space reserves a 17px-ish
+      // strip on the right via scrollbar-gutter: stable, but the fixed
+      // header spans the full viewport. Without matching that gutter
+      // on the header, .header-inner's center sits ~8px to the right
+      // of .space-inner's center — wordmark visibly misaligned with
+      // the content column underneath. Measure the actual gutter from
+      // a .space and expose as --scrollbar-w; the header consumes it
+      // as right-side padding.
+      function setScrollbarWidth() {
+        const s = document.querySelector<HTMLElement>(".space");
+        if (!s) return;
+        const gutter = s.offsetWidth - s.clientWidth;
+        document.documentElement.style.setProperty(
+          "--scrollbar-w",
+          `${gutter}px`
+        );
+      }
+      setScrollbarWidth();
+      window.addEventListener("resize", setScrollbarWidth);
+
+      // Header bottom hairline: only fades in once the active panel has
+      // been scrolled past origin. At rest the bar reads as part of the
+      // paper; the rule appears only when content is moving underneath
+      // it and needs a clean visual anchor. Driven from each panel's
+      // scroll event because each .space is its own scroll container.
+      const SCROLL_THRESHOLD = 4;
+      const siteHeader = document.querySelector<HTMLElement>(
+        "header.site-header"
+      );
+
+      function activeSpaceEl(): HTMLElement | null {
+        const idx = currentActiveIndex();
+        const names = ["thoughts", "projects", "albums", "about"];
+        return document.querySelector<HTMLElement>(
+          `.space[data-space="${names[idx]}"]`
+        );
+      }
+
+      function syncHeaderScrolled() {
+        if (!siteHeader) return;
+        const el = activeSpaceEl();
+        const should = !!el && el.scrollTop > SCROLL_THRESHOLD;
+        if (siteHeader.hasAttribute("data-scrolled") !== should) {
+          if (should) siteHeader.setAttribute("data-scrolled", "");
+          else siteHeader.removeAttribute("data-scrolled");
+        }
+      }
+
+      document.querySelectorAll<HTMLElement>(".space").forEach((s) => {
+        s.addEventListener("scroll", syncHeaderScrolled, { passive: true });
+      });
+      window.addEventListener("spaces:change", syncHeaderScrolled);
+      // Initial sync covers the case where a navigation arrives with the
+      // panel already partially scrolled (back-restore from sessionStorage
+      // above, or browser-restored scroll position on reload).
+      requestAnimationFrame(syncHeaderScrolled);
     </script>
 
     <style is:global>
@@ -331,16 +422,18 @@ const trackTranslate = `translate3d(-${activeIndex * 25}%, 0, 0)`;
     </style>
 
     <style>
-      .header-slot {
-        max-width: var(--max-width);
-        margin: 0 auto;
-        padding: 0 clamp(1.25rem, 4vw, 2rem);
-      }
-
+      /*
+       * Viewport now spans the full window height. The fixed header
+       * floats above it as a translucent overlay rather than sitting in
+       * the layout flow above this region. This is what makes the
+       * scrollbar (rendered inside .space) start at the very top of the
+       * viewport — the user's complaint about the scrollbar starting
+       * mid-page is resolved by simply not pushing this region down.
+       */
       .spaces-viewport {
         position: relative;
         width: 100%;
-        height: calc(100vh - var(--header-height, 0px));
+        height: 100vh;
         overflow: hidden;
         touch-action: pan-y;
       }
@@ -362,10 +455,18 @@ const trackTranslate = `translate3d(-${activeIndex * 25}%, 0, 0)`;
         --space-pad: clamp(1.25rem, 4vw, 2rem);
       }
 
+      /*
+       * Top padding equals the measured masthead height. First content
+       * (e.g. the .albums header, .thoughts list intro) sits flush
+       * below the bar at scroll origin. As the user scrolls, content
+       * passes UNDER the translucent header rather than being clipped.
+       */
       .space-inner {
         max-width: var(--max-width);
         margin: 0 auto;
-        padding: 0 var(--space-pad) clamp(4rem, 10vw, 8rem);
+        /* Header offset + 20px breathing room so first content doesn't
+           sit flush against the bar's bottom edge. */
+        padding: calc(var(--header-height, 4.5rem) + 1.25rem) var(--space-pad) clamp(4rem, 10vw, 8rem);
       }
 
     </style>

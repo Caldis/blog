@@ -24,9 +24,7 @@ const fmtDate = (d: Date) =>
 <section class="albums" data-albums-space>
   <header class="head">
     <h1>Albums</h1>
-    <p>
-      影像的索引。按年顺着时间倒着翻，每一帧都在当年的一个具体位置。
-    </p>
+    <p>Photos, by year.</p>
   </header>
 
   {years.map((year) => (
@@ -150,7 +148,15 @@ const fmtDate = (d: Date) =>
 
   .year-label {
     position: sticky;
-    top: 0;
+    /* Stick BELOW the fixed masthead with a breathing buffer matching
+       the .space-inner top padding (header-height + 1.25rem). Without
+       the buffer the year numeral kisses the header's bottom hairline
+       once the bar engages on scroll, which reads cramped. The buffer
+       keeps the sticky resting position visually consistent with the
+       year's first-paint position (also offset by header-height +
+       1.25rem), so the transition into sticky doesn't introduce a
+       vertical jump. */
+    top: calc(var(--header-height, 4.5rem) + 1.25rem);
     z-index: 2;
 
     display: flex;
@@ -224,7 +230,7 @@ const fmtDate = (d: Date) =>
     aspect-ratio: 3 / 2;
     margin-left: calc((100% - var(--cover-w)) / 2);
     overflow: hidden;
-    border-radius: 4px;
+    border-radius: 16px;
     background: color-mix(in oklab, var(--ink-faint) 10%, var(--bg));
     isolation: isolate;
   }
@@ -295,12 +301,16 @@ const fmtDate = (d: Date) =>
     transform: scale(1);
     transform-origin: center;
     transition:
-      opacity 760ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 3000ms cubic-bezier(0.22, 1, 0.36, 1),
       transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform;
   }
 
-  [data-album-entry].is-visible .cover-img {
+  /* Fade-in requires BOTH the entry to be in view AND the image bytes
+     to have arrived. Gating on is-visible alone makes already-visible
+     covers pop (opacity was already 1 when pixels decode); gating on
+     is-loaded alone would reveal offscreen images early. */
+  [data-album-entry].is-visible .cover.is-loaded .cover-img {
     opacity: 1;
   }
 
