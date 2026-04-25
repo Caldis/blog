@@ -245,45 +245,56 @@ const fmtDate = (d: Date) =>
     will-change: transform;
   }
 
-  /* Skeleton: opacity-only pulse (compositor-friendly). Sits behind the
-     img — when the img is still at opacity 0 (pre-reveal) or not yet
-     loaded, the skeleton shows through; once img opacity reaches 1,
-     the img fully covers it.
+  /* Skeleton: warm-gray paper-tone breath driven by background-color.
+     Sits behind the img — once img opacity reaches 1 (after both
+     `is-visible` and `is-loaded`), the img fully covers it.
 
-     Color choice: 32% ink-faint mix on the warm-cream base lands
-     visibly darker than the cover's idle tint (10% mix) so the
-     loading affordance reads at a glance against the paper, but
-     stays editorial — no shimmer, no blue. */
+     Animating background-color costs a paint per frame (vs. the GPU-
+     free opacity approach), but at this scale (a few visible covers
+     each cropped to one row) the cost is negligible. The trade buys
+     a more "alive" loading affordance — the surface visibly breathes
+     between two warm tones rather than just dimming. */
   .skeleton {
     position: absolute;
     inset: 0;
     z-index: 0;
-    background: color-mix(in oklab, var(--ink-faint) 32%, var(--bg));
-    /* IMPORTANT: when an animation is applied (even paused), the
-       property snaps to the keyframe values, NOT this base value.
-       The 0% keyframe below carries the resting opacity — keeping
-       this base in sync just so the value is correct in the brief
-       window before the animation registers. */
+    /* Mirror the 0% keyframe so the static (paused / pre-animation)
+       state matches the resting end of the breath. Without this,
+       there'd be a brief flash of base color before the animation
+       latches its 0% frame. */
+    background-color: color-mix(in oklab, var(--ink-faint) 38%, var(--bg));
     opacity: 1;
-    animation: skeleton-pulse 1.8s ease-in-out infinite;
+    animation: skeleton-breathe 1.8s ease-in-out infinite;
     animation-play-state: paused;
-    transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+    /* Both transitions matter at fade-out time: opacity drives the
+       skeleton out, and background-color smooths the snap from
+       wherever the breath was paused-to-base. Without the bg-color
+       transition there'd be a single-frame darken when `animation:
+       none` is set (the cascade-resolved base is the darker end). */
+    transition:
+      opacity 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 360ms ease-out;
     will-change: opacity;
     pointer-events: none;
   }
 
-  /* 0% / 100% = bright (resting), 50% = dim. This direction matters
-     for the paused state on inactive panels: the animation halts at
-     0% (opacity 1), so the skeleton sits at full strength when the
-     panel isn't pulsing. Inverting this would leave inactive panels
-     showing a dimmer-than-active skeleton, which reads as a bug. */
-  @keyframes skeleton-pulse {
+  /* Same-axis breath: both keyframes mix var(--ink-faint) into the
+     paper bg, just at different ratios. Stays in the warm-gray-on-
+     cream palette — reads as paper tonality shifting, not a "loading
+     widget" intruding on the editorial surface.
+
+     0% / 100% = darker end (resting). On inactive panels the paused
+     animation sits here, so the skeleton stays clearly visible even
+     when the panel isn't being viewed. 50% = lighter end of the
+     breath. Both ends remain noticeably darker than the cover's idle
+     tint (10% mix) so the affordance never disappears mid-cycle. */
+  @keyframes skeleton-breathe {
     0%,
     100% {
-      opacity: 1;
+      background-color: color-mix(in oklab, var(--ink-faint) 38%, var(--bg));
     }
     50% {
-      opacity: 0.62;
+      background-color: color-mix(in oklab, var(--ink-faint) 22%, var(--bg));
     }
   }
 

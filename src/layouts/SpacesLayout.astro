@@ -216,7 +216,7 @@ const trackTranslate = `translate3d(-${activeIndex * 25}%, 0, 0)`;
             }
           });
         // Mark the active space panel so CSS can gate expensive effects
-        // (e.g. skeleton-pulse) to only the visible panel.
+        // (e.g. skeleton-breathe on Albums) to only the visible panel.
         const spaces = ["thoughts", "projects", "albums", "about"];
         document
           .querySelectorAll<HTMLElement>(".space")
