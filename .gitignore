@@ -1,6 +1,7 @@
-# ide
+# ide / agent state
 .idea
 .vscode
+.claude/
 
 # dependencies
 node_modules/
