@@ -248,13 +248,23 @@ const fmtDate = (d: Date) =>
   /* Skeleton: opacity-only pulse (compositor-friendly). Sits behind the
      img — when the img is still at opacity 0 (pre-reveal) or not yet
      loaded, the skeleton shows through; once img opacity reaches 1,
-     the img fully covers it. */
+     the img fully covers it.
+
+     Color choice: 32% ink-faint mix on the warm-cream base lands
+     visibly darker than the cover's idle tint (10% mix) so the
+     loading affordance reads at a glance against the paper, but
+     stays editorial — no shimmer, no blue. */
   .skeleton {
     position: absolute;
     inset: 0;
     z-index: 0;
-    background: color-mix(in oklab, var(--ink-faint) 16%, var(--bg));
-    opacity: 0.55;
+    background: color-mix(in oklab, var(--ink-faint) 32%, var(--bg));
+    /* IMPORTANT: when an animation is applied (even paused), the
+       property snaps to the keyframe values, NOT this base value.
+       The 0% keyframe below carries the resting opacity — keeping
+       this base in sync just so the value is correct in the brief
+       window before the animation registers. */
+    opacity: 1;
     animation: skeleton-pulse 1.8s ease-in-out infinite;
     animation-play-state: paused;
     transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -262,13 +272,18 @@ const fmtDate = (d: Date) =>
     pointer-events: none;
   }
 
+  /* 0% / 100% = bright (resting), 50% = dim. This direction matters
+     for the paused state on inactive panels: the animation halts at
+     0% (opacity 1), so the skeleton sits at full strength when the
+     panel isn't pulsing. Inverting this would leave inactive panels
+     showing a dimmer-than-active skeleton, which reads as a bug. */
   @keyframes skeleton-pulse {
     0%,
     100% {
-      opacity: 0.45;
+      opacity: 1;
     }
     50% {
-      opacity: 0.75;
+      opacity: 0.62;
     }
   }
 

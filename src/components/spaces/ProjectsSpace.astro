@@ -5,15 +5,33 @@ type Project = {
   year: number;
   live?: string;
   repo?: string;
+  /** Optional GitHub star count. Hardcoded snapshot — refresh manually
+   *  when re-publishing. Only set on entries where the count is worth
+   *  surfacing as social proof; omit otherwise. */
+  stars?: number;
+  /** Optional longer prose. Renders as a serif body paragraph below
+   *  the subtitle. Reserve for entries that warrant more than the
+   *  one-line subtitle — pinned/featured work, projects with a story
+   *  worth telling. Plain text (no markup); newlines collapse. */
+  description?: string;
 };
 
 const projects: Project[] = [
   {
+    title: "SDFrame",
+    subtitle: "软件设计框架精选",
+    year: 2026,
+    live: "http://sdframe.caldis.me/",
+    repo: "https://github.com/Caldis/frameworks",
+  },
+  {
     title: "Mos",
-    subtitle: "macOS 平滑滚动",
+    subtitle:
+      "macOS 下的鼠标体验优化工具, 支持滚动平滑, 按键映射等 (甚至支持 Logitech 设备专有按键)。",
     year: 2018,
     live: "https://mos.caldis.me/",
     repo: "https://github.com/Caldis/Mos",
+    stars: 19886,
   },
   {
     title: "Meow",
@@ -22,7 +40,39 @@ const projects: Project[] = [
     live: "https://meow.caldis.me/",
     repo: "https://github.com/Caldis/meow",
   },
+  {
+    title: "Zmage",
+    subtitle: "顺滑的 React 图片缩放控件",
+    year: 2017,
+    live: "https://zmage.caldis.me",
+    repo: "https://github.com/Caldis/react-zmage",
+    stars: 927,
+  },
+  {
+    title: "GRA",
+    subtitle: "GitHub Releases 下载统计",
+    year: 2017,
+    live: "http://gra.caldis.me",
+    repo: "https://github.com/Caldis/github-releases-downloads-analysis",
+  },
+  {
+    title: "Bobcorn",
+    subtitle: "图标字体管理器",
+    year: 2017,
+    live: "https://bobcorn.caldis.me",
+    repo: "https://github.com/Caldis/bobcorn",
+  },
 ];
+
+// Compact star formatting. <1k stays exact, ≥1k collapses to one
+// decimal "k" (19886 → 19.9k), ≥100k drops the decimal (123456 →
+// 123k). Keeps the badge a stable two- to four-character glyph run.
+function formatStars(n: number): string {
+  if (n < 1000) return String(n);
+  const k = n / 1000;
+  if (k < 100) return k.toFixed(1).replace(/\.0$/, "") + "k";
+  return Math.round(k) + "k";
+}
 ---
 
 <section class="projects">
@@ -38,6 +88,7 @@ const projects: Project[] = [
         <div class="body">
           <h2 class="title">{p.title}</h2>
           {p.subtitle && <p class="subtitle">{p.subtitle}</p>}
+          {p.description && <p class="description">{p.description}</p>}
           <div class="links">
             {p.live && (
               <a class="link" href={p.live} target="_blank" rel="noopener">
@@ -57,6 +108,14 @@ const projects: Project[] = [
                   <path d="M3.25 8.75 L8.75 3.25 M4 3.25 H8.75 V8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </a>
+            )}
+            {p.stars !== undefined && (
+              <span class="meta" aria-label={`${formatStars(p.stars)} stars on GitHub`}>
+                <svg class="star-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                <span>{formatStars(p.stars)}</span>
+              </span>
             )}
           </div>
         </div>
@@ -138,11 +197,47 @@ const projects: Project[] = [
     font-variation-settings: "opsz" 16;
   }
 
+  /* Featured copy — shown only on entries that opt in via `description`.
+     Sits between the italic subtitle (label) and the action row (links).
+     Heavier than the subtitle (ink not ink-soft, upright not italic) so
+     the eye treats it as primary reading content for the entry; capped
+     at 36rem so long lines don't outrun the column. */
+  .description {
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--ink);
+    max-width: 36rem;
+    margin-top: 0.125rem;
+  }
+
   .links {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 1.25rem;
     margin-top: 0.875rem;
+  }
+
+  /* Non-interactive metadata badge in the links row (e.g. star count).
+     Mirrors `.link`'s typographic scale so it sits in the same lane,
+     but uses ink-soft instead of accent so the eye reads it as info,
+     not action. tnum keeps digit widths stable across re-renders. */
+  .meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    font-feature-settings: "tnum";
+    white-space: nowrap;
+  }
+
+  .meta .star-icon {
+    width: 0.875rem;
+    height: 0.875rem;
   }
 
   .link {

@@ -18,10 +18,7 @@ import LogoMark from "../../brand/LogoMark.astro";
   </div>
 
   <h1>Caldis</h1>
-  <p>
-    Writing sometimes, building often. These pages collect whatever felt
-    worth keeping.
-  </p>
+  <p>Creating, Designing and Coding</p>
   <ul class="links" role="list">
     <li>
       <a
@@ -102,14 +99,28 @@ import LogoMark from "../../brand/LogoMark.astro";
   const DOT_RADIUS = 0.6;       // CSS-px radius per painted dot
   const REPEL_RADIUS = 64;      // CSS-px influence radius around pointer
   const REPEL_STRENGTH = 14;    // CSS-px max displacement at cursor
-  const SPRING = 0.18;          // [0,1] lerp each frame toward target
-  const SETTLE_EPS = 0.12;      // CSS-px — considered at-rest below this
+  // Per-frame lerp factor toward target. Lower = dots catch up to the
+  // cursor more lazily, producing a visible "drag" trail instead of
+  // snapping. SETTLE_EPS scales with this — the effective resting
+  // tolerance is SETTLE_EPS / SPRING, so both move together.
+  const SPRING = 0.07;          // [0,1] lerp each frame toward target
+  const SETTLE_EPS = 0.05;      // CSS-px — considered at-rest below this
+
+  // Empty padding around the mark, as a fraction of mark size. The
+  // dots only occupy the inner mark-size square; the surrounding
+  // canvas region exists purely so wave/repel displacements don't
+  // clip at the canvas edges. CSS sizes the visible canvas to
+  // mark-size + 2*pad to match.
+  const CANVAS_PAD_RATIO = 0.35;
 
   // Click-wave: an expanding ring originating at the click point.
-  const WAVE_SPEED = 200;       // CSS-px/s — ripple pace, not shockwave
+  // Speed is intentionally slow — a ripple, not a shockwave — and
+  // duration extends past mark+pad so the wavefront fades naturally
+  // in the empty padding rather than vanishing at the dot grid edge.
+  const WAVE_SPEED = 110;       // CSS-px/s — ripple pace, not shockwave
   const WAVE_WIDTH = 56;        // CSS-px — width of the "active" ring band
   const WAVE_AMPLITUDE = 13;    // CSS-px — max outward push at ring peak
-  const WAVE_DURATION = 1500;   // ms — lifetime before wave is discarded
+  const WAVE_DURATION = 2400;   // ms — lifetime before wave is discarded
 
   const canvas = document.querySelector<HTMLCanvasElement>("[data-mark-canvas]");
   const fallback = document.querySelector<HTMLElement>(".mark-fallback");
@@ -216,7 +227,24 @@ import LogoMark from "../../brand/LogoMark.astro";
         canvas!.width = cssW * dpr;
         canvas!.height = cssH * dpr;
         ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-        dots = sample(Math.min(cssW, cssH));
+
+        // Visible canvas is mark-size + 2*pad on each axis. Render the
+        // mark into the inner mark-size square and shift dot positions
+        // by the padding offset so they sit centered. sample() stays
+        // unaware of layout — it just rasterises into a markSize-sided
+        // box; the offset is bolted on here.
+        const totalSize = Math.min(cssW, cssH);
+        const markSize = totalSize / (1 + 2 * CANVAS_PAD_RATIO);
+        const offsetX = (cssW - markSize) / 2;
+        const offsetY = (cssH - markSize) / 2;
+        dots = sample(markSize);
+        for (const d of dots) {
+          d.bx += offsetX;
+          d.x = d.bx;
+          d.by += offsetY;
+          d.y = d.by;
+        }
+
         if (fallback) fallback.style.display = "none";
         draw();
       }
@@ -352,17 +380,30 @@ import LogoMark from "../../brand/LogoMark.astro";
   /* Interactive logo-mark canvas. Sized in CSS only; the JS handles
      dpr scaling on the backing store.
 
-     Negative margin-left optically aligns the first painted dot column
-     (which sits at viewBox x=5 — i.e. 5/32 of the canvas width) with
-     the "Caldis" headline below. Without this pull the mark visually
-     indents by the 5/32 inner padding of the SVG artwork. */
+     The visible canvas is mark-size + 2*canvas-pad on each axis — the
+     mark itself stays at mark-size, but extra empty padding gives the
+     wave/repel motion room to expand without being clipped at the
+     canvas edge. The JS-side CANVAS_PAD_RATIO (0.35) must stay in
+     sync with the multiplier here.
+
+     Negative margin-left has two contributions, both pulling the
+     FRAME's left edge into alignment with the "Caldis" headline:
+       • -canvas-pad — undo the empty padding on the canvas's left
+       • -(5/32) * mark-size — undo the SVG's internal padding (the
+         FRAME starts at viewBox x=5 in a 32-unit box). */
   .mark-hero {
     --mark-size: clamp(140px, 18vw, 180px);
+    --canvas-pad: calc(var(--mark-size) * 0.35);
     position: relative;
-    width: var(--mark-size);
+    width: calc(var(--mark-size) + 2 * var(--canvas-pad));
     aspect-ratio: 1 / 1;
-    margin-bottom: 0.5rem;
-    margin-left: calc(-5 / 32 * var(--mark-size));
+    /* Pull the row below up by the canvas-pad so the mark's empty
+       bottom padding doesn't push "Caldis" further from the mark than
+       it used to be. The .about grid still contributes 1.25rem of gap,
+       so the visible spacing lands a touch tighter than the original
+       — intentional, the mark reads as a unit with the headline now. */
+    margin-bottom: calc(-1 * var(--canvas-pad));
+    margin-left: calc(-1 * var(--canvas-pad) - (5 / 32) * var(--mark-size));
     color: var(--ink);
   }
 
@@ -373,11 +414,12 @@ import LogoMark from "../../brand/LogoMark.astro";
     cursor: crosshair;
   }
 
+  /* SSR fallback sits in the inner mark-size square — i.e. inset by
+     canvas-pad on every side — so it registers exactly with where the
+     canvas paints the dotted FRAME. Keeps hydration visually silent. */
   .mark-fallback {
     position: absolute;
-    inset: 10%;
-    width: 80%;
-    height: 80%;
+    inset: var(--canvas-pad);
     color: inherit;
   }
 
