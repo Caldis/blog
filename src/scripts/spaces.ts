@@ -7,6 +7,17 @@ const PATHS: Record<SpaceName, string> = {
   albums: "/albums",
   about: "/about",
 };
+// Mirrors the SSR title format produced by SpacesLayout.astro
+// (`${title} — Caldis's Blog`). Kept in sync by hand — if either
+// changes, both must change. The em-dash here is U+2014, matching
+// the layout exactly so client-driven title updates don't flicker
+// between two visually-similar separators.
+const TITLES: Record<SpaceName, string> = {
+  thoughts: "Thoughts",
+  projects: "Projects",
+  albums: "Albums",
+  about: "About",
+};
 
 const EASE = "cubic-bezier(0.05, 1.0, 0.34, 1.0)";
 const DUR_ADJACENT = 760;
@@ -41,6 +52,10 @@ export function pathFromIndex(i: number): string {
   return PATHS[SPACES[i] ?? "thoughts"];
 }
 
+function titleFromIndex(i: number): string {
+  return `${TITLES[SPACES[i] ?? "thoughts"]} — Caldis's Blog`;
+}
+
 function applyTransform(state: State, px: number, anim: { dur: number } | null) {
   if (anim) {
     state.track.style.transition = `transform ${anim.dur}ms ${EASE}`;
@@ -60,6 +75,16 @@ function baseOffset(state: State): number {
 }
 
 function emitChange(state: State) {
+  // Sync the document title to the active space. Every code path
+  // that changes state.index calls emitChange immediately after, so
+  // this is the single chokepoint — covers nav-click, drag-release,
+  // keyboard, wheel, AND popstate (back/forward), since all routes
+  // ultimately funnel through goToSpace or settleFromDrag.
+  //
+  // Updates fire at the START of the animation (when intent is
+  // committed), not at the end — the tab title flips immediately
+  // instead of lagging the 760-1000ms transition.
+  document.title = titleFromIndex(state.index);
   window.dispatchEvent(
     new CustomEvent("spaces:change", { detail: { index: state.index } })
   );
