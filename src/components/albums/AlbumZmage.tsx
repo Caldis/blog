@@ -24,7 +24,6 @@ export default function AlbumZmage({ photos, children }: AlbumZmageProps) {
     <Zmage.Wrapper
       set={set}
       backdrop="oklch(15% 0.035 245 / 0.96)"
-      edge={24}
       zIndex={2000}
       hideOnScroll={false}
       controller={{
