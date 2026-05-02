@@ -1,6 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import Footer from "../../components/Footer.astro";
+import AlbumZmage from "../../components/albums/AlbumZmage";
 import { getCollection } from "astro:content";
 import type { CollectionEntry } from "astro:content";
 
@@ -44,6 +45,12 @@ const fmt = (d: Date) =>
     month: "long",
     day: "numeric",
   });
+
+const viewerPhotos = photos.map((p) => ({
+  src: p.src,
+  alt: p.alt ?? album.data.title,
+  caption: p.alt,
+}));
 ---
 
 <Layout title={album.data.title}>
@@ -88,22 +95,25 @@ const fmt = (d: Date) =>
       </p>
     </header>
 
-    <ol class="stream" role="list">
-      {photos.map((p, i) => (
-        <li class={`frame ${i === 0 ? "lead" : ""}`}>
-          <figure>
-            <span class="skeleton" aria-hidden="true"></span>
-            <img
-              class="stream-img"
-              src={p.src}
-              alt={p.alt ?? album.data.title}
-              loading={i === 0 ? "eager" : "lazy"}
-              decoding="async"
-            />
-          </figure>
-        </li>
-      ))}
-    </ol>
+    <AlbumZmage client:load photos={viewerPhotos}>
+      <ol class="stream" role="list">
+        {photos.map((p, i) => (
+          <li class={`frame ${i === 0 ? "lead" : ""}`}>
+            <figure>
+              <span class="skeleton" aria-hidden="true"></span>
+              <img
+                class="stream-img"
+                src={p.src}
+                alt={p.alt ?? album.data.title}
+                data-zmage-caption={p.alt}
+                loading={i === 0 ? "eager" : "lazy"}
+                decoding="async"
+              />
+            </figure>
+          </li>
+        ))}
+      </ol>
+    </AlbumZmage>
   </article>
   <Footer />
 </Layout>
