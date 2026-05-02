@@ -20,5 +20,9 @@ export default function AlbumZmage({ photos, children }: AlbumZmageProps) {
     caption: photo.caption,
   }));
 
-  return <Zmage.Wrapper set={set}>{children}</Zmage.Wrapper>;
+  return (
+    <Zmage.Wrapper set={set} backdrop="var(--bg)">
+      {children}
+    </Zmage.Wrapper>
+  );
 }
