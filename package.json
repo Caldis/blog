@@ -11,6 +11,6 @@
     "astro": "^6.1.9",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-zmage": "^1.8.2"
+    "react-zmage": "^1.8.4"
   }
 }
